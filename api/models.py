@@ -145,6 +145,26 @@ class PromptBundle(BaseModel):
     retrieval_truncated: bool = False
 
 
+class SplitPlanDay(BaseModel):
+    day: DayNameType
+    focus: str = Field(..., min_length=1, max_length=80)
+    objective: str = Field(..., min_length=1, max_length=180)
+    key_patterns: list[str] = Field(..., min_length=1, max_length=4)
+
+
+class SplitPlan(BaseModel):
+    summary: str = Field(..., min_length=1, max_length=220)
+    rationale: list[str] = Field(..., min_length=2, max_length=6)
+    days: list[SplitPlanDay] = Field(..., min_length=2, max_length=6)
+    optional_days: list[SplitPlanDay] = Field(default_factory=list, max_length=3)
+
+
+class PlanReview(BaseModel):
+    approved: bool
+    issues: list[str] = Field(default_factory=list, max_length=8)
+    revision_notes: list[str] = Field(default_factory=list, max_length=8)
+
+
 class PlanExercise(BaseModel):
     name: str = Field(..., min_length=1)
     sets: int = Field(..., ge=1, le=8)

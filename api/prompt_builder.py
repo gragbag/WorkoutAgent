@@ -4,7 +4,6 @@ from api.models import (
     PromptBundle,
     RetrievedContextChunk,
 )
-from api.planning_knowledge import get_split_template, get_staple_exercise_hints
 
 OUTPUT_SCHEMA_DESCRIPTION = """
 Return valid JSON only with this shape:
@@ -94,8 +93,6 @@ def build_plan_prompt(
     preferences = normalized.preferences
     height_text = f"{athlete.height_feet} ft {athlete.height_inches} in"
     weight_text = f"{athlete.weight_lbs} lb"
-    split_template = get_split_template(normalized)
-    staple_hints = get_staple_exercise_hints(normalized)
 
     system_prompt = (
         "You are WorkoutAgent, a careful strength and fitness programming assistant. "
@@ -130,12 +127,6 @@ Preferences and notes:
 - Variety preference: {preferences.variety_preference}
 - Additional notes: {preferences.notes}
 
-Recommended split framework:
-- {" | ".join(split_template)}
-
-Staple exercise hints to favor when available:
-- {", ".join(staple_hints) if staple_hints else "Use simple, recognizable compound lifts where possible."}
-
 Retrieved candidate exercises:
 {_render_candidate_exercises(candidate_exercises)}
 
@@ -152,8 +143,6 @@ Planning requirements:
 - If injuries are present, bias toward joint-friendly exercise choices and conservative coaching notes.
 - Prefer using exercises from the retrieved candidate list unless there is a strong reason not to.
 - Avoid prescribing exercises whose contraindications conflict with the athlete's injuries.
-- Favor simple, recognizable exercise names over niche branded variations when both are available.
-- Make the weekly structure feel traditional and easy to follow, such as upper/lower or push/pull/legs when appropriate for the schedule.
 - If no flexible days are provided, return an empty optional_days array.
 
 {OUTPUT_SCHEMA_DESCRIPTION}
