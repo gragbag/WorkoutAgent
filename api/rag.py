@@ -54,6 +54,10 @@ def _cosine_similarity(left: Counter[str], right: Counter[str]) -> float:
     return dot / (left_norm * right_norm)
 
 
+def score_text_similarity(query: str, candidate_text: str) -> float:
+    return _cosine_similarity(embed_text(query), embed_text(candidate_text))
+
+
 def build_knowledge_base_entry(exercise: ExerciseCandidate) -> str:
     return (
         f"Exercise: {exercise.name}. "

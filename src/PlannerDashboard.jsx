@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createSavedPlan, deleteSavedPlan, fetchSavedPlans } from './lib/savedPlans.js'
+import {
+  createSavedPlan,
+  deleteSavedPlan,
+  fetchSavedPlans,
+  updateSavedPlan,
+} from './lib/savedPlans.js'
 
 const experienceLevels = ['Beginner', 'Intermediate', 'Advanced']
 const equipmentOptions = [
@@ -21,7 +26,7 @@ const activityLevels = [
   'Moderately active',
   'Very active',
 ]
-const workoutLocations = ['Home', 'Apartment gym', 'Commercial gym', 'Outdoors']
+const workoutLocations = ['Home', 'Gym']
 const cardioPreferences = [
   'No cardio preference',
   'Enjoys cardio',
@@ -35,6 +40,7 @@ const navItems = [
   { id: 'home', label: 'Home' },
   { id: 'generate', label: 'AI Planner' },
   { id: 'saved', label: 'Saved Plans' },
+  { id: 'edit', label: 'Edit Plan' },
   { id: 'calendar', label: 'Calendar' },
   { id: 'progress', label: 'Progress' },
   { id: 'profile', label: 'Profile' },
@@ -57,27 +63,21 @@ const inputClass =
 function PlannerDashboard({ userId, userEmail, onSignOut }) {
   const [activePage, setActivePage] = useState('home')
   const [experience, setExperience] = useState(experienceLevels[0])
-  const [equipment, setEquipment] = useState(['Dumbbells', 'Bench'])
+  const [equipment, setEquipment] = useState(['Bodyweight', 'Dumbbells', 'Bench'])
   const [ageRange, setAgeRange] = useState(ageRanges[1])
   const [activityLevel, setActivityLevel] = useState(activityLevels[1])
-  const [workoutLocation, setWorkoutLocation] = useState(workoutLocations[0])
+  const [workoutLocation, setWorkoutLocation] = useState('Gym')
   const [cardioPreference, setCardioPreference] = useState(cardioPreferences[3])
   const [intensityPreference, setIntensityPreference] = useState(intensityPreferences[1])
   const [varietyPreference, setVarietyPreference] = useState(varietyPreferences[0])
   const [daysPerWeek, setDaysPerWeek] = useState(4)
-  const [sessionLength, setSessionLength] = useState(45)
-  const [heightFeet, setHeightFeet] = useState(5)
-  const [heightInches, setHeightInches] = useState(10)
-  const [weightLbs, setWeightLbs] = useState(170)
+  const [sessionLengthMin, setSessionLengthMin] = useState(35)
+  const [sessionLengthMax, setSessionLengthMax] = useState(50)
   const [trainingDays, setTrainingDays] = useState(['Monday', 'Wednesday', 'Friday', 'Saturday'])
   const [flexibleDays, setFlexibleDays] = useState(['Tuesday'])
-  const [injuries, setInjuries] = useState('Mild shoulder tightness from long desk hours.')
-  const [equipmentDetails, setEquipmentDetails] = useState(
-    'Adjustable dumbbells up to 50 lb, flat bench, and a treadmill.'
-  )
-  const [notes, setNotes] = useState(
-    'Prefers short weekday sessions and one longer weekend workout. Enjoys simple, repeatable plans.'
-  )
+  const [injuries, setInjuries] = useState('')
+  const [equipmentDetails, setEquipmentDetails] = useState('')
+  const [notes, setNotes] = useState('')
   const [generatedPlan, setGeneratedPlan] = useState(null)
   const [savedPlans, setSavedPlans] = useState([])
   const [expandedSavedPlans, setExpandedSavedPlans] = useState({})
@@ -87,6 +87,15 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
   const [submitError, setSubmitError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
   const [savedPlansError, setSavedPlansError] = useState('')
+  const [planBeingEdited, setPlanBeingEdited] = useState(null)
+  const [editInstructions, setEditInstructions] = useState('')
+  const [selectedEditSessions, setSelectedEditSessions] = useState({})
+  const [selectedEditExercises, setSelectedEditExercises] = useState({})
+  const [editedPlanDraft, setEditedPlanDraft] = useState(null)
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false)
+  const [isSavingEditedPlan, setIsSavingEditedPlan] = useState(false)
+  const [editPlanError, setEditPlanError] = useState('')
+  const [editPlanMessage, setEditPlanMessage] = useState('')
 
   useEffect(() => {
     let isMounted = true
@@ -129,11 +138,9 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       experience,
       equipment,
       age_range: ageRange,
-      height_feet: heightFeet,
-      height_inches: heightInches,
-      weight_lbs: weightLbs,
       days_per_week: daysPerWeek,
-      session_length: sessionLength,
+      session_length_min: sessionLengthMin,
+      session_length_max: sessionLengthMax,
       available_training_days: selectedTrainingDays,
       flexible_training_days: flexibleDays.filter((day) => !selectedTrainingDays.includes(day)),
       injuries,
@@ -154,79 +161,20 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       equipmentDetails,
       experience,
       flexibleDays,
-      heightFeet,
-      heightInches,
       intensityPreference,
       injuries,
       notes,
       selectedTrainingDays,
-      sessionLength,
+      sessionLengthMax,
+      sessionLengthMin,
       varietyPreference,
-      weightLbs,
       workoutLocation,
     ]
   )
 
-  const fallbackPreviewDays = useMemo(() => {
-    let focusPool = [
-      'Upper body push',
-      'Lower body strength',
-      'Back + arms',
-      'Full-body balance',
-      'Posterior chain',
-      'Core + conditioning',
-    ]
-    if (intensityPreference === 'Light') {
-      focusPool = [
-        'Foundational full body',
-        'Joint-friendly lower body',
-        'Upper body support',
-        'Movement quality',
-        'Low-stress conditioning',
-        'Recovery flow',
-      ]
-    } else if (intensityPreference === 'Challenging') {
-      focusPool = [
-        'Upper body strength',
-        'Lower body strength',
-        'Pull + posterior chain',
-        'Full-body performance',
-        'Accessory volume',
-        'Core finisher',
-      ]
-    }
-    if (cardioPreference === 'Enjoys cardio') {
-      focusPool = [...focusPool.slice(0, 4), 'Conditioning support', 'Steady cardio + core']
-    } else if (cardioPreference === 'Prefer minimal cardio') {
-      focusPool = [...focusPool.slice(0, 5), 'Core + mobility']
-    }
-    const fallbackDays = weekDays.filter((day) => !trainingDays.includes(day))
-    const orderedDays = [...trainingDays, ...fallbackDays].slice(0, daysPerWeek)
-
-    return orderedDays.map((day, index) => ({
-      day: day.slice(0, 3),
-      focus: focusPool[index % focusPool.length],
-      detail:
-        intensityPreference === 'Light'
-          ? 'Controlled pace, joint-friendly movement, and a short low-stress finisher'
-          : `${sessionLength}-minute session tuned for ${experience.toLowerCase()} progress and ${activityLevel.toLowerCase()} recovery`,
-    }))
-  }, [activityLevel, cardioPreference, daysPerWeek, experience, intensityPreference, sessionLength, trainingDays])
-
-  const fallbackOptionalDays = useMemo(() => {
-    return flexibleDays
-      .filter((day) => !selectedTrainingDays.includes(day))
-      .slice(0, 2)
-      .map((day) => ({
-        day: day.slice(0, 3),
-        focus: 'Optional mobility or accessory work',
-        detail: 'Use this day for a short bonus session if time and energy line up.',
-      }))
-  }, [flexibleDays, selectedTrainingDays])
-
   const profileStats = [
     { label: 'Current setup', value: `${workoutLocation} · ${equipment.join(', ')}` },
-    { label: 'Training rhythm', value: `${daysPerWeek} days · ${sessionLength} min` },
+    { label: 'Training rhythm', value: `${daysPerWeek} days · ${sessionLengthMin}-${sessionLengthMax} min` },
     { label: 'Baseline activity', value: activityLevel },
     { label: 'Planning preferences', value: `${intensityPreference} · ${varietyPreference}` },
   ]
@@ -385,12 +333,280 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     }))
   }
 
+  function getSessionEditKey(day, isOptional = false) {
+    return `${isOptional ? 'optional' : 'required'}:${day}`
+  }
+
+  function mapSavedPlanToApiPlan(plan) {
+    return {
+      summary: plan.summary,
+      athlete_snapshot: plan.athleteSnapshot ?? [],
+      coaching_notes: plan.coachingNotes ?? [],
+      days: plan.days ?? [],
+      optional_days: plan.optionalDays ?? [],
+      metadata: {
+        provider_requested: plan.metadata?.provider_requested ?? 'saved_plan',
+        provider_used: plan.metadata?.provider_used ?? 'saved_plan',
+        model_used: plan.metadata?.model_used ?? 'saved_plan',
+        candidate_exercise_count: plan.metadata?.candidate_exercise_count ?? 0,
+        retrieved_chunk_count: plan.metadata?.retrieved_chunk_count ?? 0,
+        retrieval_strategy: plan.metadata?.retrieval_strategy ?? 'saved_plan_edit',
+        retrieval_truncated: plan.metadata?.retrieval_truncated ?? false,
+        generated_at: plan.metadata?.generated_at ?? plan.savedAt,
+      },
+    }
+  }
+
+  function handleStartEditPlan(plan) {
+    setPlanBeingEdited(plan)
+    setEditInstructions('')
+    setSelectedEditSessions({})
+    setSelectedEditExercises({})
+    setEditedPlanDraft(null)
+    setEditPlanError('')
+    setEditPlanMessage('')
+    setActivePage('edit')
+  }
+
+  function resetEditWorkspace() {
+    setPlanBeingEdited(null)
+    setEditInstructions('')
+    setSelectedEditSessions({})
+    setSelectedEditExercises({})
+    setEditedPlanDraft(null)
+    setEditPlanError('')
+    setEditPlanMessage('')
+  }
+
+  function toggleEditSession(day, isOptional = false, focus = '') {
+    const key = getSessionEditKey(day, isOptional)
+    setSelectedEditSessions((current) => {
+      if (current[key]) {
+        const next = { ...current }
+        delete next[key]
+        return next
+      }
+
+      return {
+        ...current,
+        [key]: { day, is_optional: isOptional, focus },
+      }
+    })
+  }
+
+  function toggleEditExercise(day, exerciseName, isOptional = false, focus = '') {
+    const key = getSessionEditKey(day, isOptional)
+    setSelectedEditSessions((current) => ({
+      ...current,
+      [key]: current[key] ?? { day, is_optional: isOptional, focus },
+    }))
+
+    setSelectedEditExercises((current) => {
+      const currentItems = current[key] ?? []
+      if (currentItems.includes(exerciseName)) {
+        return {
+          ...current,
+          [key]: currentItems.filter((item) => item !== exerciseName),
+        }
+      }
+
+      return {
+        ...current,
+        [key]: [...currentItems, exerciseName],
+      }
+    })
+  }
+
+  async function handleSubmitPlanEdit(event) {
+    event.preventDefault()
+
+    if (!planBeingEdited) {
+      return
+    }
+
+    setIsSubmittingEdit(true)
+    setEditPlanError('')
+    setEditPlanMessage('')
+
+    try {
+      const selectedSessionsPayload = Object.entries(selectedEditSessions).map(
+        ([key, selection]) => ({
+          ...selection,
+          exercise_names: selectedEditExercises[key] ?? [],
+        })
+      )
+
+      const response = await fetch('/api/plan/edit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          intake: planBeingEdited.intake,
+          original_plan: mapSavedPlanToApiPlan(planBeingEdited),
+          edit_instructions: editInstructions,
+          selected_sessions: selectedSessionsPayload,
+          preserve_unselected: true,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        const detail =
+          typeof data?.detail === 'string'
+            ? data.detail
+            : data?.error || 'Plan edit failed.'
+        throw new Error(detail)
+      }
+
+      setEditedPlanDraft(data)
+      setGeneratedPlan(data)
+      setEditPlanMessage('Updated plan generated. Review it below, then save changes.')
+    } catch (error) {
+      setEditPlanError(error instanceof Error ? error.message : 'Could not edit plan.')
+    } finally {
+      setIsSubmittingEdit(false)
+    }
+  }
+
+  async function handleSaveEditedPlan() {
+    if (!planBeingEdited || !editedPlanDraft) {
+      return
+    }
+
+    setIsSavingEditedPlan(true)
+    setEditPlanError('')
+
+    try {
+      let savedPlanResult = null
+
+      try {
+        savedPlanResult = await updateSavedPlan(
+          userId,
+          planBeingEdited.id,
+          editedPlanDraft,
+          planBeingEdited.intake
+        )
+        setSavedPlans((currentPlans) =>
+          currentPlans.map((plan) => (plan.id === savedPlanResult.id ? savedPlanResult : plan))
+        )
+        setEditPlanMessage('Changes saved to your plan library.')
+      } catch (updateError) {
+        const replacementPlan = await createSavedPlan(
+          userId,
+          editedPlanDraft,
+          planBeingEdited.intake
+        )
+
+        try {
+          await deleteSavedPlan(userId, planBeingEdited.id)
+        } catch (_deleteError) {
+          // Keep the new saved plan even if cleanup of the old row fails.
+        }
+
+        savedPlanResult = replacementPlan
+        setSavedPlans((currentPlans) => {
+          const withoutOriginal = currentPlans.filter((plan) => plan.id !== planBeingEdited.id)
+          return [replacementPlan, ...withoutOriginal]
+        })
+        setEditPlanMessage(
+          updateError instanceof Error
+            ? 'Changes saved as a replacement plan because direct update was unavailable.'
+            : 'Changes saved as a replacement plan.'
+        )
+      }
+
+      setPlanBeingEdited(savedPlanResult)
+      setSavedPlansError('')
+      setSaveMessage('Saved plan updated.')
+      setActivePage('saved')
+    } catch (error) {
+      setEditPlanError(error instanceof Error ? error.message : 'Could not save changes.')
+    } finally {
+      setIsSavingEditedPlan(false)
+    }
+  }
+
   function toggleSavedPlanDayExpanded(planId, dayKey) {
     const stateKey = `${planId}-${dayKey}`
     setExpandedSavedPlanDays((current) => ({
       ...current,
       [stateKey]: !current[stateKey],
     }))
+  }
+
+  function renderExerciseDetails(exercise) {
+    const hasExtraDetails =
+      (exercise.secondary_muscles && exercise.secondary_muscles.length > 0) ||
+      exercise.movement_pattern ||
+      (exercise.coaching_cues && exercise.coaching_cues.length > 0)
+
+    if (!hasExtraDetails) {
+      return null
+    }
+
+    return (
+      <details className="mt-2 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2 text-sm">
+        <summary className="cursor-pointer list-none font-medium text-[#ffcfad]">
+          More details
+        </summary>
+        <div className="mt-2 space-y-1 text-[#cfc5b7]">
+          {exercise.secondary_muscles?.length ? (
+            <p>Also targets: {exercise.secondary_muscles.join(', ')}</p>
+          ) : null}
+          {exercise.movement_pattern ? (
+            <p>Movement pattern: {exercise.movement_pattern}</p>
+          ) : null}
+          {exercise.coaching_cues?.length ? (
+            <p>Coaching cues: {exercise.coaching_cues.join(' ')}</p>
+          ) : null}
+        </div>
+      </details>
+    )
+  }
+
+  function renderPlanPreview(plan, title, emptyText) {
+    if (!plan) {
+      return (
+        <article className={`${cardClass} p-5`}>
+          <p className={sectionLabelClass}>{title}</p>
+          <p className="mt-3 text-sm leading-6 text-[#efe7d8]">{emptyText}</p>
+        </article>
+      )
+    }
+
+    return (
+      <article className={`${cardClass} p-5`}>
+        <p className={sectionLabelClass}>{title}</p>
+        <h3 className="mt-2 text-xl font-semibold text-[#f9f2e8]">{plan.summary}</h3>
+        <div className="mt-4 grid gap-3">
+          {[...(plan.days ?? []), ...((plan.optional_days ?? plan.optionalDays) ?? [])].map((day) => (
+            <div key={`${title}-${day.day}-${day.focus}`} className="rounded-2xl border border-white/8 bg-black/10 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className={sectionLabelClass}>{day.day}</p>
+                  <p className="mt-1 font-medium text-[#f8f2e8]">{day.focus}</p>
+                </div>
+                <p className="text-sm text-[#cfc5b7]">{day.duration_minutes} min</p>
+              </div>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-[#efe7d8]">
+                {day.exercises?.map((exercise) => (
+                  <div key={`${title}-${day.day}-${exercise.name}`} className="rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2">
+                    <p className="font-medium text-[#f8f2e8]">
+                      {exercise.name} {exercise.sets}x{exercise.reps}
+                    </p>
+                    <p className="text-[#cfc5b7]">
+                      {exercise.primary_muscle_group} · {exercise.equipment_used}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+    )
   }
 
   function renderSidebar() {
@@ -629,53 +845,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                   </div>
 
                   <div className="grid gap-3">
-                    <label className={sectionLabelClass}>Height</label>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          aria-label="Height in feet"
-                          className={`${inputClass} w-20 px-3 py-2.5 text-center`}
-                          type="number"
-                          min="3"
-                          max="8"
-                          value={heightFeet}
-                          onChange={(event) => setHeightFeet(Number(event.target.value))}
-                        />
-                        <span className="text-sm text-[#cfc5b7]">ft</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          aria-label="Height in inches"
-                          className={`${inputClass} w-20 px-3 py-2.5 text-center`}
-                          type="number"
-                          min="0"
-                          max="11"
-                          value={heightInches}
-                          onChange={(event) => setHeightInches(Number(event.target.value))}
-                        />
-                        <span className="text-sm text-[#cfc5b7]">in</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-[18px] md:grid-cols-2">
-                  <div className="grid gap-3">
-                    <label className={sectionLabelClass} htmlFor="weight-lbs">
-                      Weight (lb)
-                    </label>
-                    <input
-                      id="weight-lbs"
-                      className={inputClass}
-                      type="number"
-                      min="50"
-                      max="700"
-                      value={weightLbs}
-                      onChange={(event) => setWeightLbs(Number(event.target.value))}
-                    />
-                  </div>
-
-                  <div className="grid gap-3">
                     <label className={sectionLabelClass} htmlFor="activity-level">
                       Current activity level
                     </label>
@@ -723,22 +892,43 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                   </div>
 
                   <div className="grid gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className={sectionLabelClass} htmlFor="session-length">
-                        Session length
-                      </label>
-                      <span className="text-sm text-[#ffcfad]">{sessionLength} min</span>
+                    <label className={sectionLabelClass}>Session length range</label>
+                    <div className="grid gap-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-[#cfc5b7]">Minimum</span>
+                        <span className="text-sm text-[#ffcfad]">{sessionLengthMin} min</span>
+                      </div>
+                      <input
+                        className="w-full accent-[#f08f56]"
+                        type="range"
+                        min="20"
+                        max="90"
+                        step="5"
+                        value={sessionLengthMin}
+                        onChange={(event) =>
+                          setSessionLengthMin(
+                            Math.min(Number(event.target.value), sessionLengthMax)
+                          )
+                        }
+                      />
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-[#cfc5b7]">Maximum</span>
+                        <span className="text-sm text-[#ffcfad]">{sessionLengthMax} min</span>
+                      </div>
+                      <input
+                        className="w-full accent-[#f08f56]"
+                        type="range"
+                        min="20"
+                        max="90"
+                        step="5"
+                        value={sessionLengthMax}
+                        onChange={(event) =>
+                          setSessionLengthMax(
+                            Math.max(Number(event.target.value), sessionLengthMin)
+                          )
+                        }
+                      />
                     </div>
-                    <input
-                      id="session-length"
-                      className="w-full accent-[#f08f56]"
-                      type="range"
-                      min="20"
-                      max="90"
-                      step="5"
-                      value={sessionLength}
-                      onChange={(event) => setSessionLength(Number(event.target.value))}
-                    />
                   </div>
                 </div>
 
@@ -960,12 +1150,12 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 <h2 className="mt-2 text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
                   {generatedPlan
                     ? 'Live response from the API'
-                    : 'What the generated experience could feel like'}
+                    : 'Generate a plan to see the model output'}
                 </h2>
               </div>
               <div className="flex flex-wrap gap-2">
                 <div className="w-fit rounded-full border border-[#5b9575]/35 bg-[#5b9575]/16 px-3 py-2 text-sm text-[#c2b7a6]">
-                  {generatedPlan ? 'API connected' : 'Preview only'}
+                  {generatedPlan ? 'API connected' : 'No output yet'}
                 </div>
                 {generatedPlan ? (
                   <button
@@ -1002,13 +1192,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 </ul>
               ) : (
                 <p className="mt-4 m-0 leading-6 text-[#efe7d8]">
-                  {ageRange}, {heightFeet} ft {heightInches} in, {weightLbs} lb, {activityLevel.toLowerCase()} and
-                  training mostly at {workoutLocation.toLowerCase()}. Training on{' '}
-                  {selectedTrainingDays.join(', ')} for roughly {sessionLength}-minute
+                  {ageRange}, {activityLevel.toLowerCase()} and training mostly at{' '}
+                  {workoutLocation.toLowerCase()}. Training on{' '}
+                  {selectedTrainingDays.join(', ')} for roughly {sessionLengthMin}-{sessionLengthMax}-minute
                   sessions with a {intensityPreference.toLowerCase()} feel.
-                  {fallbackOptionalDays.length
-                    ? ` Optional bonus days: ${fallbackOptionalDays.map((day) => day.day).join(', ')}.`
-                    : ''}
                 </p>
               )}
             </article>
@@ -1046,6 +1233,12 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                                 {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
                                 {exercise.rest_seconds}s rest
                               </p>
+                              {exercise.exercise_explanation ? (
+                                <p className="text-[#efe7d8]">
+                                  Why: {exercise.exercise_explanation}
+                                </p>
+                              ) : null}
+                              {renderExerciseDetails(exercise)}
                               <p className="text-[#cfc5b7]">{exercise.intensity_note}</p>
                               <p className="text-[#cfc5b7]">
                                 Swap option: {exercise.substitution_note}
@@ -1056,28 +1249,21 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                       </div>
                     </article>
                   ))
-                : fallbackPreviewDays.map((session) => (
-                    <article
-                      key={session.day}
-                      className={`${cardClass} min-h-[170px] p-[18px]`}
-                    >
-                      <p className={sectionLabelClass}>{session.day}</p>
-                      <h3 className="mt-2 mb-2.5 text-[1.2rem] leading-tight font-semibold">
-                        {session.focus}
-                      </h3>
-                      <p className="m-0 leading-6 text-[#efe7d8]">{session.detail}</p>
+                : (
+                    <article className={`${cardClass} min-h-[170px] p-[18px] md:col-span-2`}>
+                      <p className={sectionLabelClass}>Awaiting generation</p>
+                      <p className="mt-2 leading-6 text-[#efe7d8]">
+                        Submit the intake form to see the weekly structure, exercises, coach
+                        notes, and optional sessions returned by the model.
+                      </p>
                     </article>
-                  ))}
+                  )}
             </div>
 
-            {(generatedPlan?.optional_days?.length || fallbackOptionalDays.length) ? (
+            {generatedPlan?.optional_days?.length ? (
               <div className="mt-[22px] grid gap-3.5">
                 <p className={sectionLabelClass}>Optional sessions</p>
-                {(generatedPlan?.optional_days?.length
-                  ? generatedPlan.optional_days
-                  : fallbackOptionalDays
-                ).map((session) =>
-                  generatedPlan?.optional_days?.length ? (
+                {generatedPlan.optional_days.map((session) => (
                     <article
                       key={`optional-${session.day}`}
                       className={`${cardClass} min-h-[170px] space-y-3 p-[18px]`}
@@ -1091,29 +1277,34 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                       </p>
                       <div className="text-sm leading-6 text-[#efe7d8]">
                         <p className="font-medium text-[#8ec9a6]">Main work</p>
-                        <p>
-                          {session.exercises
-                            .map((exercise) => `${exercise.name} ${exercise.sets}x${exercise.reps}`)
-                            .join(', ')}
-                        </p>
+                        <div className="space-y-2">
+                          {session.exercises.map((exercise) => (
+                            <div
+                              key={`optional-${session.day}-${exercise.name}`}
+                              className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5"
+                            >
+                              <p className="font-medium text-[#f8f2e8]">
+                                {exercise.name} {exercise.sets}x{exercise.reps}
+                              </p>
+                              <p className="text-[#cfc5b7]">
+                                {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
+                                {exercise.rest_seconds}s rest
+                              </p>
+                              {exercise.exercise_explanation ? (
+                                <p className="text-[#efe7d8]">
+                                  Why: {exercise.exercise_explanation}
+                                </p>
+                              ) : null}
+                              {renderExerciseDetails(exercise)}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                       <p className="text-sm leading-6 text-[#cfc5b7]">
                         {session.coach_notes.join(' ')}
                       </p>
                     </article>
-                  ) : (
-                    <article
-                      key={`optional-${session.day}`}
-                      className={`${cardClass} min-h-[140px] p-[18px]`}
-                    >
-                      <p className={sectionLabelClass}>{session.day}</p>
-                      <h3 className="mt-2 mb-2.5 text-[1.1rem] leading-tight font-semibold">
-                        {session.focus}
-                      </h3>
-                      <p className="m-0 leading-6 text-[#efe7d8]">{session.detail}</p>
-                    </article>
-                  )
-                )}
+                  ))}
               </div>
             ) : null}
 
@@ -1175,10 +1366,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                     {generatedPlan.metadata.retrieved_chunk_count}
                   </p>
                   <p>
-                    <span className="font-medium text-[#ffcfad]">Fallback:</span>{' '}
-                    {generatedPlan.metadata.fallback_used ? 'Yes' : 'No'}
-                  </p>
-                  <p>
                     <span className="font-medium text-[#ffcfad]">Retrieval:</span>{' '}
                     {generatedPlan.metadata.retrieval_strategy}
                   </p>
@@ -1191,12 +1378,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                     {generatedPlan.metadata.generated_at}
                   </p>
                 </div>
-                {generatedPlan.metadata.fallback_reason ? (
-                  <p className="mt-3 text-sm leading-6 text-[#cfc5b7]">
-                    <span className="font-medium text-[#ffcfad]">Fallback reason:</span>{' '}
-                    {generatedPlan.metadata.fallback_reason}
-                  </p>
-                ) : null}
               </article>
             ) : null}
 
@@ -1312,6 +1493,13 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleStartEditPlan(plan)}
+                      className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDeleteSavedPlan(plan.id)}
                       className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
                     >
@@ -1381,6 +1569,12 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                                         {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
                                         {exercise.rest_seconds}s rest
                                       </p>
+                                      {exercise.exercise_explanation ? (
+                                        <p className="text-[#efe7d8]">
+                                          Why: {exercise.exercise_explanation}
+                                        </p>
+                                      ) : null}
+                                      {renderExerciseDetails(exercise)}
                                       <p className="text-[#cfc5b7]">{exercise.intensity_note}</p>
                                       <p className="text-[#cfc5b7]">
                                         Swap option: {exercise.substitution_note}
@@ -1441,14 +1635,29 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
                                   {isOptionalExpanded ? (
                                     <div className="mt-3 text-sm leading-6 text-[#efe7d8]">
-                                      <p>
-                                        {day.exercises
-                                          .map(
-                                            (exercise) =>
-                                              `${exercise.name} ${exercise.sets}x${exercise.reps}`
-                                          )
-                                          .join(', ')}
-                                      </p>
+                                      <div className="space-y-2">
+                                        {day.exercises.map((exercise) => (
+                                          <div
+                                            key={`${optionalStateKey}-${exercise.name}`}
+                                            className="rounded-xl border border-white/8 bg-black/10 px-3 py-2"
+                                          >
+                                            <p className="font-medium text-[#f8f2e8]">
+                                              {exercise.name} {exercise.sets}x{exercise.reps}
+                                            </p>
+                                            <p className="text-[#cfc5b7]">
+                                              {exercise.primary_muscle_group} ·{' '}
+                                              {exercise.equipment_used} · {exercise.rest_seconds}s
+                                              rest
+                                            </p>
+                                            {exercise.exercise_explanation ? (
+                                              <p className="text-[#efe7d8]">
+                                                Why: {exercise.exercise_explanation}
+                                              </p>
+                                            ) : null}
+                                            {renderExerciseDetails(exercise)}
+                                          </div>
+                                        ))}
+                                      </div>
                                       <p className="mt-2 text-[#cfc5b7]">
                                         {day.coach_notes.join(' ')}
                                       </p>
@@ -1560,6 +1769,275 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     )
   }
 
+  function renderEditPage() {
+    const selectedSessionCount = Object.keys(selectedEditSessions).length
+
+    if (!planBeingEdited) {
+      return (
+        <section className="grid gap-4">
+          <article className={`${panelClass} ${panelGlowClass}`}>
+            <p className={sectionLabelClass}>Edit plan</p>
+            <h2 className="mt-2 text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
+              Choose a saved plan to revise
+            </h2>
+            <p className="mt-4 text-base leading-7 text-[#efe7d8]">
+              Open the Saved Plans page and click `Edit` on any plan to target specific
+              days, exercises, and feedback for the model.
+            </p>
+            <button
+              type="button"
+              onClick={() => setActivePage('saved')}
+              className="mt-5 rounded-full bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-5 py-3 font-semibold text-[#111] transition hover:-translate-y-0.5"
+            >
+              Go to saved plans
+            </button>
+          </article>
+        </section>
+      )
+    }
+
+    return (
+      <section className="grid gap-6">
+        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <form className={`${panelClass} ${panelGlowClass}`} onSubmit={handleSubmitPlanEdit}>
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className={sectionLabelClass}>Edit workspace</p>
+                <h2 className="mt-2 text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
+                  {planBeingEdited.summary}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
+                  Pick the sessions or exercises you want to change, then explain what
+                  should be removed, replaced, simplified, or rewritten.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-4 py-2.5 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmittingEdit ? 'Updating...' : 'Update Plan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetEditWorkspace}
+                  className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className={`${cardClass} p-4`}>
+                <p className={sectionLabelClass}>Target plan</p>
+                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
+                  Saved {new Date(planBeingEdited.savedAt).toLocaleString()}
+                </p>
+              </div>
+              <div className={`${cardClass} p-4`}>
+                <p className={sectionLabelClass}>Selected sessions</p>
+                <strong className="mt-2 block text-3xl text-[#f9f2e8]">{selectedSessionCount}</strong>
+              </div>
+              <div className={`${cardClass} p-4`}>
+                <p className={sectionLabelClass}>Feedback mode</p>
+                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
+                  Preserve untouched sessions unless the request implies a broader rewrite.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              <article className={`${cardClass} p-4`}>
+                <p className={sectionLabelClass}>Required sessions</p>
+                <div className="mt-3 grid gap-3">
+                  {planBeingEdited.days.map((day) => {
+                    const sessionKey = getSessionEditKey(day.day, false)
+                    const isSelected = Boolean(selectedEditSessions[sessionKey])
+
+                    return (
+                      <div key={sessionKey} className="rounded-2xl border border-white/8 bg-black/10 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className={sectionLabelClass}>{day.day}</p>
+                            <p className="mt-1 font-medium text-[#f8f2e8]">{day.focus}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleEditSession(day.day, false, day.focus)}
+                            className={`rounded-full px-3 py-2 text-sm transition ${
+                              isSelected
+                                ? 'bg-[#f08f56]/18 text-[#ffcfad]'
+                                : 'border border-white/12 bg-white/[0.03] text-[#f5efe4]'
+                            }`}
+                          >
+                            {isSelected ? 'Selected' : 'Select day'}
+                          </button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {day.exercises.map((exercise) => {
+                            const selectedExercises = selectedEditExercises[sessionKey] ?? []
+                            const isExerciseSelected = selectedExercises.includes(exercise.name)
+
+                            return (
+                              <button
+                                key={`${sessionKey}-${exercise.name}`}
+                                type="button"
+                                onClick={() =>
+                                  toggleEditExercise(day.day, exercise.name, false, day.focus)
+                                }
+                                className={`rounded-full border px-3 py-2 text-sm transition ${
+                                  isExerciseSelected
+                                    ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df]'
+                                    : 'border-white/12 bg-white/[0.03] text-[#f8f2e8]'
+                                }`}
+                              >
+                                {exercise.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </article>
+
+              {planBeingEdited.optionalDays?.length ? (
+                <article className={`${cardClass} p-4`}>
+                  <p className={sectionLabelClass}>Optional sessions</p>
+                  <div className="mt-3 grid gap-3">
+                    {planBeingEdited.optionalDays.map((day) => {
+                      const sessionKey = getSessionEditKey(day.day, true)
+                      const isSelected = Boolean(selectedEditSessions[sessionKey])
+
+                      return (
+                        <div key={sessionKey} className="rounded-2xl border border-white/8 bg-black/10 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className={sectionLabelClass}>{day.day}</p>
+                              <p className="mt-1 font-medium text-[#d8f2df]">{day.focus}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleEditSession(day.day, true, day.focus)}
+                              className={`rounded-full px-3 py-2 text-sm transition ${
+                                isSelected
+                                  ? 'bg-[#5b9575]/16 text-[#d8f2df]'
+                                  : 'border border-white/12 bg-white/[0.03] text-[#f5efe4]'
+                              }`}
+                            >
+                              {isSelected ? 'Selected' : 'Select day'}
+                            </button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {day.exercises.map((exercise) => {
+                              const selectedExercises = selectedEditExercises[sessionKey] ?? []
+                              const isExerciseSelected = selectedExercises.includes(exercise.name)
+
+                              return (
+                                <button
+                                  key={`${sessionKey}-${exercise.name}`}
+                                  type="button"
+                                  onClick={() =>
+                                    toggleEditExercise(day.day, exercise.name, true, day.focus)
+                                  }
+                                  className={`rounded-full border px-3 py-2 text-sm transition ${
+                                    isExerciseSelected
+                                      ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df]'
+                                      : 'border-white/12 bg-white/[0.03] text-[#f8f2e8]'
+                                  }`}
+                                >
+                                  {exercise.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </article>
+              ) : null}
+
+              <article className={`${cardClass} p-4`}>
+                <label className={sectionLabelClass} htmlFor="edit-instructions">
+                  Edit request
+                </label>
+                <textarea
+                  id="edit-instructions"
+                  rows="7"
+                  className={`${inputClass} mt-3 min-h-36 resize-y`}
+                  value={editInstructions}
+                  onChange={(event) => setEditInstructions(event.target.value)}
+                  placeholder="Example: Replace the Tuesday dumbbell lunges with something easier on my knees, remove one triceps isolation move, and make Friday feel more back-focused."
+                  required
+                />
+                <p className="mt-3 text-sm leading-6 text-[#c2b7a6]">
+                  Good prompts here mention what to remove, what to keep, any pain or
+                  equipment issue, and whether you want a local edit or a broader rewrite.
+                </p>
+              </article>
+
+              {editPlanError ? (
+                <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {editPlanError}
+                </div>
+              ) : null}
+
+              {editPlanMessage ? (
+                <div className="rounded-[18px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                  {editPlanMessage}
+                </div>
+              ) : null}
+            </div>
+          </form>
+
+          <section className="grid gap-4">
+            {renderPlanPreview(
+              mapSavedPlanToApiPlan(planBeingEdited),
+              'Original plan',
+              'No plan selected.'
+            )}
+
+            {renderPlanPreview(
+              editedPlanDraft,
+              'Updated draft',
+              'Generate an updated plan to preview the revised output here.'
+            )}
+
+            {editedPlanDraft ? (
+              <article className={`${panelClass} ${panelGlowClass}`}>
+                <p className={sectionLabelClass}>Save changes</p>
+                <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
+                  This will overwrite the existing saved plan with the updated version.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveEditedPlan}
+                    disabled={isSavingEditedPlan}
+                    className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-5 py-3 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingEditedPlan ? 'Saving...' : 'Save changes to plan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePage('saved')}
+                    className="rounded-full border border-white/12 bg-white/[0.03] px-5 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                  >
+                    Back to saved plans
+                  </button>
+                </div>
+              </article>
+            ) : null}
+          </section>
+        </section>
+      </section>
+    )
+  }
+
   function renderProgressPage() {
     const latestMetadata = generatedPlan?.metadata ?? savedPlans[0]?.metadata ?? null
 
@@ -1602,9 +2080,9 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 </p>
               </div>
               <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Fallback used</p>
+                <p className={sectionLabelClass}>Retrieval mode</p>
                 <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  {latestMetadata.fallback_used ? 'Yes' : 'No'}
+                  {latestMetadata.retrieval_strategy}
                 </p>
               </div>
             </div>
@@ -1681,6 +2159,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
     if (activePage === 'saved') {
       return renderSavedPlansPage()
+    }
+
+    if (activePage === 'edit') {
+      return renderEditPage()
     }
 
     if (activePage === 'calendar') {

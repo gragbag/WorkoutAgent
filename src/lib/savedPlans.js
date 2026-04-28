@@ -68,3 +68,31 @@ export async function deleteSavedPlan(userId, planId) {
     throw error
   }
 }
+
+export async function updateSavedPlan(userId, planId, plan, intake) {
+  const payload = {
+    summary: plan.summary,
+    metadata: plan.metadata,
+    days: plan.days,
+    optional_days: plan.optional_days ?? [],
+    coaching_notes: plan.coaching_notes,
+    athlete_snapshot: plan.athlete_snapshot,
+    intake,
+  }
+
+  const { data, error } = await supabase
+    .from('saved_plans')
+    .update(payload)
+    .eq('user_id', userId)
+    .eq('id', planId)
+    .select(
+      'id, saved_at, summary, metadata, days, optional_days, coaching_notes, athlete_snapshot, intake'
+    )
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return mapRowToSavedPlan(data)
+}

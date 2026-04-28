@@ -25,6 +25,12 @@ on public.saved_plans
 for insert
 with check (auth.uid() = user_id);
 
+create policy "users can update their own saved plans"
+on public.saved_plans
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
 create policy "users can delete their own saved plans"
 on public.saved_plans
 for delete

@@ -4,6 +4,8 @@ import csv
 import json
 from pathlib import Path
 
+from api.equipment import canonicalize_equipment_label
+
 
 SOURCE_PATH = Path(__file__).resolve().parent / "data" / "megaGymDataset.csv"
 TARGET_PATH = Path(__file__).resolve().parent / "data" / "exercises.json"
@@ -26,22 +28,6 @@ BODY_PART_MAP = {
     "Shoulders": "shoulders",
     "Traps": "upper back",
     "Triceps": "triceps",
-}
-
-EQUIPMENT_MAP = {
-    "Body Only": "bodyweight",
-    "Bands": "bands",
-    "Barbell": "barbell",
-    "Cable": "cable machine",
-    "Dumbbell": "dumbbell",
-    "E-Z Curl Bar": "ez curl bar",
-    "Exercise Ball": "exercise ball",
-    "Foam Roll": "other",
-    "Kettlebells": "kettlebell",
-    "Machine": "machine",
-    "Medicine Ball": "medicine ball",
-    "None": "bodyweight",
-    "Other": "other",
 }
 
 LEVEL_MAP = {
@@ -187,7 +173,7 @@ def convert_row(row: dict[str, str]) -> dict[str, object]:
     exercise_type = row["Type"].strip()
     body_part_raw = row["BodyPart"].strip()
     body_part = BODY_PART_MAP.get(body_part_raw, body_part_raw.lower())
-    equipment_used = EQUIPMENT_MAP.get(row["Equipment"].strip(), row["Equipment"].strip().lower())
+    equipment_used = canonicalize_equipment_label(row["Equipment"].strip())
     difficulty = LEVEL_MAP.get(row["Level"].strip(), "intermediate")
     movement_pattern = _infer_movement_pattern(title, description, body_part)
 

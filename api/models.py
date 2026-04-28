@@ -24,7 +24,7 @@ ActivityLevelType = Literal[
     "Very active",
 ]
 
-WorkoutLocationType = Literal["Home", "Apartment gym", "Commercial gym", "Outdoors"]
+WorkoutLocationType = Literal["Home", "Gym"]
 
 CardioPreferenceType = Literal[
     "No cardio preference",
@@ -65,11 +65,9 @@ class PlanRequest(BaseModel):
     experience: ExperienceType
     equipment: list[EquipmentType] = Field(..., min_length=1, max_length=10)
     age_range: AgeRangeType
-    height_feet: int = Field(..., ge=3, le=8)
-    height_inches: int = Field(..., ge=0, le=11)
-    weight_lbs: int = Field(..., ge=50, le=700)
     days_per_week: int = Field(..., ge=2, le=6)
-    session_length: int = Field(..., ge=20, le=90)
+    session_length_min: int = Field(..., ge=20, le=90)
+    session_length_max: int = Field(..., ge=20, le=90)
     available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=6)
     flexible_training_days: list[DayNameType] = Field(default_factory=list, max_length=3)
     injuries: str = ""
@@ -85,9 +83,6 @@ class PlanRequest(BaseModel):
 class NormalizedAthleteProfile(BaseModel):
     experience: ExperienceType
     age_range: AgeRangeType
-    height_feet: int = Field(..., ge=3, le=8)
-    height_inches: int = Field(..., ge=0, le=11)
-    weight_lbs: int = Field(..., ge=50, le=700)
     current_activity_level: ActivityLevelType
 
 
@@ -96,7 +91,8 @@ class NormalizedConstraints(BaseModel):
     workout_location: WorkoutLocationType
     equipment_details: str
     days_per_week: int = Field(..., ge=2, le=6)
-    session_length: int = Field(..., ge=20, le=90)
+    session_length_min: int = Field(..., ge=20, le=90)
+    session_length_max: int = Field(..., ge=20, le=90)
     available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=6)
     flexible_training_days: list[DayNameType] = Field(default_factory=list, max_length=3)
     injuries: str
@@ -137,8 +133,6 @@ class RetrievedContextChunk(BaseModel):
 
 
 class PromptBundle(BaseModel):
-    system_prompt: str
-    user_prompt: str
     normalized_input: NormalizedPlanRequest
     candidate_exercises: list[ExerciseCandidate]
     retrieved_context: list[RetrievedContextChunk]
@@ -172,7 +166,11 @@ class PlanExercise(BaseModel):
     rest_seconds: int = Field(..., ge=15, le=240)
     intensity_note: str = Field(..., min_length=1, max_length=160)
     primary_muscle_group: str = Field(..., min_length=1, max_length=80)
+    secondary_muscles: list[str] = Field(default_factory=list, max_length=5)
+    movement_pattern: str = Field(default="", max_length=80)
     equipment_used: str = Field(..., min_length=1, max_length=80)
+    coaching_cues: list[str] = Field(default_factory=list, max_length=3)
+    exercise_explanation: str = Field(default="", max_length=220)
     substitution_note: str = Field(..., min_length=1, max_length=180)
 
 
@@ -181,7 +179,7 @@ class PlanDay(BaseModel):
     focus: str = Field(..., min_length=1, max_length=80)
     duration_minutes: int = Field(..., ge=20, le=90)
     warmup: list[str] = Field(..., min_length=2, max_length=5)
-    exercises: list[PlanExercise] = Field(..., min_length=3, max_length=6)
+    exercises: list[PlanExercise] = Field(..., min_length=2, max_length=6)
     cooldown: list[str] = Field(..., min_length=1, max_length=3)
     coach_notes: list[str] = Field(..., min_length=1, max_length=3)
 
@@ -190,8 +188,6 @@ class PlanMetadata(BaseModel):
     provider_requested: str
     provider_used: str
     model_used: str
-    fallback_used: bool
-    fallback_reason: str = ""
     candidate_exercise_count: int = Field(..., ge=0)
     retrieved_chunk_count: int = Field(..., ge=0)
     retrieval_strategy: str
@@ -206,6 +202,21 @@ class PlanResponse(BaseModel):
     days: list[PlanDay] = Field(..., min_length=2, max_length=6)
     optional_days: list[PlanDay] = Field(default_factory=list, max_length=3)
     metadata: PlanMetadata
+
+
+class PlanEditSelection(BaseModel):
+    day: DayNameType
+    is_optional: bool = False
+    focus: str = Field(default="", max_length=80)
+    exercise_names: list[str] = Field(default_factory=list, max_length=6)
+
+
+class PlanEditRequest(BaseModel):
+    intake: PlanRequest
+    original_plan: PlanResponse
+    edit_instructions: str = Field(..., min_length=1, max_length=2000)
+    selected_sessions: list[PlanEditSelection] = Field(default_factory=list, max_length=9)
+    preserve_unselected: bool = True
 
 
 class ChatRequest(BaseModel):
