@@ -18,38 +18,10 @@ from api.models import ExerciseCandidate, NormalizedPlanRequest
 from api.rag import build_knowledge_base_entry, build_retrieval_query, score_text_similarity
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "exercises.json"
-NOISY_TITLE_MARKERS = {
-    "fyr",
-    "fyr2",
-    "gethin",
-    "holman",
-    "variation",
-    "tbs",
-    "bfr",
-    "kv",
-    "hm",
-    "am",
-    "ld",
-}
-NON_MAIN_EXERCISE_MARKERS = {
-    "stretch",
-    "smr",
-    "mobility",
-    "warm-up",
-    "warmup",
-    "cooldown",
-    "circle",
-    "circles",
-    "leg swing",
-    "arm swing",
-    "toe touch",
-    "torso twist",
-    "pass-through",
-    "pass through",
-    "rollout prep",
-}
 NON_MAIN_MOVEMENT_PATTERNS = {"carry"}
 CORE_PATTERN = "core stability"
+
+
 @lru_cache(maxsize=1)
 def load_exercise_catalog() -> list[ExerciseCandidate]:
     with DATA_PATH.open("r", encoding="utf-8") as file:
@@ -58,35 +30,7 @@ def load_exercise_catalog() -> list[ExerciseCandidate]:
     return [ExerciseCandidate.model_validate(item) for item in raw_items]
 
 
-def _is_high_quality_title(title: str) -> bool:
-    normalized = " ".join(title.split())
-    if not normalized:
-        return False
-
-    if normalized[0].isdigit():
-        return False
-
-    lowered = normalized.lower()
-    if any(marker in lowered for marker in NOISY_TITLE_MARKERS):
-        return False
-
-    first_token = normalized.split()[0]
-    if first_token.isupper() and len(first_token) <= 4:
-        return False
-
-    return True
-
-
 def _is_main_work_exercise(exercise: ExerciseCandidate) -> bool:
-    lowered_name = exercise.name.lower()
-    lowered_cues = " ".join(exercise.coaching_cues).lower()
-
-    if any(marker in lowered_name for marker in NON_MAIN_EXERCISE_MARKERS):
-        return False
-
-    if any(marker in lowered_cues for marker in ("stretch", "mobility", "warm up", "warm-up")):
-        return False
-
     if exercise.movement_pattern in NON_MAIN_MOVEMENT_PATTERNS:
         return False
 
@@ -139,9 +83,6 @@ def get_candidate_exercises(
     query = build_retrieval_query(normalized)
 
     for exercise in catalog:
-        if not _is_high_quality_title(exercise.name):
-            continue
-
         if not _is_main_work_exercise(exercise):
             continue
 

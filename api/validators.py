@@ -15,29 +15,8 @@ from api.injury_rules import (
 from api.models import ExerciseCandidate, PlanResponse, PromptBundle, SplitPlan
 
 NAME_TOKEN_RE = re.compile(r"[a-z0-9]+")
-SIMILARITY_STOPWORDS = {
-    "alternating",
-    "assisted",
-    "bar",
-    "bodyweight",
-    "close",
-    "dumbbell",
-    "grip",
-    "incline",
-    "machine",
-    "narrow",
-    "neutral",
-    "pronated",
-    "rope",
-    "seated",
-    "single",
-    "single-arm",
-    "single-leg",
-    "standing",
-    "supinated",
-    "wide",
-    "weighted",
-}
+
+
 def _is_equipment_compatible(
     reported_equipment: str,
     selected_equipment: set[str],
@@ -67,14 +46,6 @@ def _normalize_exercise_tokens(name: str) -> set[str]:
             normalized.add(token[:-2])
 
     return normalized
-
-
-def _base_similarity_tokens(name: str) -> set[str]:
-    return {
-        token
-        for token in _normalize_exercise_tokens(name)
-        if token not in SIMILARITY_STOPWORDS and len(token) > 1
-    }
 
 def _has_injury_conflict(
     exercise_name: str,
@@ -123,7 +94,7 @@ def _find_similar_exercise_pair(exercise_names: list[str]) -> tuple[str, str] | 
     seen: list[tuple[str, set[str]]] = []
 
     for name in exercise_names:
-        tokens = _base_similarity_tokens(name)
+        tokens = {token for token in _normalize_exercise_tokens(name) if len(token) > 1}
         if not tokens:
             continue
 

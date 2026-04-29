@@ -139,7 +139,6 @@ class PromptBundle(BaseModel):
     normalized_input: NormalizedPlanRequest
     candidate_exercises: list[ExerciseCandidate]
     retrieved_context: list[RetrievedContextChunk]
-    retrieval_truncated: bool = False
     split_template_matches: list[SplitTemplateMatch] = Field(default_factory=list, max_length=6)
 
 
@@ -188,23 +187,11 @@ class PlanDay(BaseModel):
     coach_notes: list[str] = Field(..., min_length=1, max_length=3)
 
 
-class PlanMetadata(BaseModel):
-    provider_requested: str
-    provider_used: str
-    model_used: str
-    candidate_exercise_count: int = Field(..., ge=0)
-    retrieved_chunk_count: int = Field(..., ge=0)
-    retrieval_strategy: str
-    retrieval_truncated: bool
-    generated_at: str
-
-
 class PlanResponse(BaseModel):
     summary: str
     athlete_snapshot: list[str] = Field(..., min_length=3, max_length=6)
     coaching_notes: list[str] = Field(..., min_length=3, max_length=6)
     days: list[PlanDay] = Field(..., min_length=2, max_length=7)
-    metadata: PlanMetadata
 
 
 class PlanEditSelection(BaseModel):

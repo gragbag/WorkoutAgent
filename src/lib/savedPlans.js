@@ -5,7 +5,6 @@ function mapRowToSavedPlan(row) {
     id: row.id,
     savedAt: row.saved_at,
     summary: row.summary,
-    metadata: row.metadata ?? {},
     days: row.days ?? [],
     coachingNotes: row.coaching_notes ?? [],
     athleteSnapshot: row.athlete_snapshot ?? [],
@@ -16,7 +15,7 @@ function mapRowToSavedPlan(row) {
 export async function fetchSavedPlans(userId) {
   const { data, error } = await supabase
     .from('saved_plans')
-    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
+    .select('id, saved_at, summary, days, coaching_notes, athlete_snapshot, intake')
     .eq('user_id', userId)
     .order('saved_at', { ascending: false })
 
@@ -31,7 +30,6 @@ export async function createSavedPlan(userId, plan, intake) {
   const payload = {
     user_id: userId,
     summary: plan.summary,
-    metadata: plan.metadata,
     days: plan.days,
     coaching_notes: plan.coaching_notes,
     athlete_snapshot: plan.athlete_snapshot,
@@ -41,7 +39,7 @@ export async function createSavedPlan(userId, plan, intake) {
   const { data, error } = await supabase
     .from('saved_plans')
     .insert(payload)
-    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
+    .select('id, saved_at, summary, days, coaching_notes, athlete_snapshot, intake')
     .single()
 
   if (error) {
@@ -66,7 +64,6 @@ export async function deleteSavedPlan(userId, planId) {
 export async function updateSavedPlan(userId, planId, plan, intake) {
   const payload = {
     summary: plan.summary,
-    metadata: plan.metadata,
     days: plan.days,
     coaching_notes: plan.coaching_notes,
     athlete_snapshot: plan.athlete_snapshot,
@@ -78,7 +75,7 @@ export async function updateSavedPlan(userId, planId, plan, intake) {
     .update(payload)
     .eq('user_id', userId)
     .eq('id', planId)
-    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
+    .select('id, saved_at, summary, days, coaching_notes, athlete_snapshot, intake')
     .single()
 
   if (error) {

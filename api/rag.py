@@ -94,7 +94,7 @@ def retrieve_relevant_context(
     *,
     top_k: int = MAX_RETRIEVED_ITEMS,
     char_budget: int = MAX_RETRIEVED_CHARS,
-) -> tuple[list[RetrievedContextChunk], bool]:
+) -> list[RetrievedContextChunk]:
     query_embedding = embed_text(build_retrieval_query(normalized))
 
     scored_chunks: list[RetrievedContextChunk] = []
@@ -114,18 +114,13 @@ def retrieve_relevant_context(
 
     scored_chunks.sort(key=lambda chunk: (-chunk.score, chunk.title))
 
-    truncated = False
     selected: list[RetrievedContextChunk] = []
     used_chars = 0
     for chunk in scored_chunks[:top_k]:
         projected = used_chars + len(chunk.content)
         if selected and projected > char_budget:
-            truncated = True
             break
         selected.append(chunk)
         used_chars = projected
 
-    if len(scored_chunks) > len(selected):
-        truncated = True
-
-    return selected, truncated
+    return selected

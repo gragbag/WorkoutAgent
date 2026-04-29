@@ -17,7 +17,7 @@ from api.models import (
     PromptBundle,
     SplitPlan,
 )
-from api.services import apply_estimated_durations, build_plan_metadata, prepare_plan_generation
+from api.services import apply_estimated_durations, prepare_plan_generation
 from api.split_preferences import render_requested_focus_counts, requested_focus_mismatches
 from api.validators import validate_plan_response
 
@@ -31,7 +31,6 @@ class LLMConfig:
     api_key: str
     model: str
     timeout_seconds: int
-    mcp_server_url: str
     verifier_enabled: bool
     backend_validation_enabled: bool
 
@@ -42,14 +41,11 @@ def _load_config() -> LLMConfig:
         provider=provider,
         api_url=os.getenv(
             "WORKOUTAGENT_LLM_API_URL",
-            "https://api.openai.com/v1/responses"
-            if provider == "openai_mcp"
-            else "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
         ),
         api_key=os.getenv("WORKOUTAGENT_LLM_API_KEY", ""),
         model=os.getenv("WORKOUTAGENT_LLM_MODEL", ""),
         timeout_seconds=int(os.getenv("WORKOUTAGENT_LLM_TIMEOUT", "75")),
-        mcp_server_url=os.getenv("WORKOUTAGENT_MCP_SERVER_URL", ""),
         verifier_enabled=os.getenv("WORKOUTAGENT_ENABLE_VERIFIER", "0").lower()
         in {"1", "true", "yes", "on"},
         backend_validation_enabled=os.getenv(
@@ -152,102 +148,6 @@ def _call_openai_compatible_api(config: LLMConfig, system_prompt: str, user_prom
             return combined
 
     raise ValueError("LLM response did not contain text content.")
-
-
-def _extract_responses_api_text(data: dict[str, Any]) -> str:
-    output_text = data.get("output_text")
-    if isinstance(output_text, str) and output_text.strip():
-        return output_text
-
-    output_items = data.get("output", [])
-    text_parts: list[str] = []
-
-    for item in output_items:
-        if item.get("type") == "message":
-            for content in item.get("content", []):
-                if content.get("type") in {"output_text", "text"} and content.get("text"):
-                    text_parts.append(content["text"])
-
-    combined = "\n".join(text_parts).strip()
-    if combined:
-        return combined
-
-    raise ValueError("Responses API output did not contain any text.")
-
-
-def _call_openai_responses_api_with_mcp(
-    config: LLMConfig, system_prompt: str, user_prompt: str
-) -> str:
-    if not config.api_key:
-        raise ValueError("Missing WORKOUTAGENT_LLM_API_KEY.")
-
-    if not config.model:
-        raise ValueError("Missing WORKOUTAGENT_LLM_MODEL.")
-
-    if not config.mcp_server_url:
-        raise ValueError("Missing WORKOUTAGENT_MCP_SERVER_URL.")
-
-    payload = {
-        "model": config.model,
-        "instructions": system_prompt,
-        "input": user_prompt,
-        "tools": [
-            {
-                "type": "mcp",
-                "server_label": "workoutagent_mcp",
-                "server_description": "Workout planning tools for exercise search, split recommendations, and retrieval.",
-                "server_url": config.mcp_server_url,
-                "require_approval": "never",
-                "allowed_tools": [
-                    "search_exercises",
-                    "retrieve_context",
-                ],
-            }
-        ],
-    }
-
-    req = request.Request(
-        config.api_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {config.api_key}",
-        },
-        method="POST",
-    )
-
-    try:
-        with request.urlopen(req, timeout=config.timeout_seconds) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="ignore")
-        logger.error(
-            "Responses API MCP request failed",
-            extra={
-                "provider": config.provider,
-                "model": config.model,
-                "api_url": config.api_url,
-                "mcp_server_url": config.mcp_server_url,
-                "status_code": exc.code,
-                "error_body": error_body,
-            },
-        )
-        raise RuntimeError(f"LLM HTTP error {exc.code}: {error_body}") from exc
-    except error.URLError as exc:
-        logger.error(
-            "Responses API MCP network error",
-            extra={
-                "provider": config.provider,
-                "model": config.model,
-                "api_url": config.api_url,
-                "mcp_server_url": config.mcp_server_url,
-                "reason": str(exc.reason),
-            },
-        )
-        raise RuntimeError(f"LLM network error: {exc.reason}") from exc
-
-    return _extract_responses_api_text(data)
-
 
 def _parse_plan_response(raw_text: str, prompt_bundle: PromptBundle) -> PlanResponse:
     json_blob = _extract_json_blob(raw_text)
@@ -388,35 +288,12 @@ def _normalize_plan_day(
     }
 
 
-def _normalize_plan_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "provider_requested": metadata.get("provider_requested", "pending"),
-        "provider_used": metadata.get("provider_used", "pending"),
-        "model_used": metadata.get("model_used", "pending"),
-        "candidate_exercise_count": max(
-            0, int(metadata.get("candidate_exercise_count", 0) or 0)
-        ),
-        "retrieved_chunk_count": max(
-            0, int(metadata.get("retrieved_chunk_count", 0) or 0)
-        ),
-        "retrieval_strategy": metadata.get(
-            "retrieval_strategy", "llm_generated_without_metadata"
-        ),
-        "retrieval_truncated": bool(metadata.get("retrieval_truncated", False)),
-        "generated_at": metadata.get("generated_at", "pending"),
-    }
-
-
 def _normalize_plan_response_payload(
     parsed: dict[str, Any],
     *,
     duration_minimum: int,
     duration_maximum: int,
 ) -> dict[str, Any]:
-    metadata = parsed.get("metadata", {})
-    if not isinstance(metadata, dict):
-        metadata = {}
-
     return {
         "summary": _truncate_text(parsed.get("summary", ""), 280),
         "athlete_snapshot": [
@@ -436,7 +313,6 @@ def _normalize_plan_response_payload(
             for day in list(parsed.get("days", []))[:7]
             if isinstance(day, dict)
         ],
-        "metadata": _normalize_plan_metadata(metadata),
     }
 
 
@@ -799,7 +675,7 @@ Structured exercise context:
 {_render_structured_exercise_context(prompt_bundle, limit=10)}
 
 Plan to review:
-{_compact_json(plan.model_dump(exclude={"metadata"}))}
+{_compact_json(plan.model_dump())}
 
 Verification instructions:
 - Review every session.
@@ -872,7 +748,7 @@ Athlete intake:
 {_render_intake_context(prompt_bundle, include_schedule=True, include_free_text_fields=False)}
 
 Original plan:
-{_compact_json(payload.original_plan.model_dump(exclude={"metadata"}))}
+{_compact_json(payload.original_plan.model_dump())}
 
 Requested edit scope:
 {_compact_json({"selected_target": selected_target, "preserve_unselected": payload.preserve_unselected})}
@@ -951,10 +827,8 @@ def _generate_plan_from_split(
 def _call_model(config: LLMConfig, system_prompt: str, user_prompt: str) -> str:
     if config.provider == "openai_compat":
         return _call_openai_compatible_api(config, system_prompt, user_prompt)
-    if config.provider == "openai_mcp":
-        return _call_openai_responses_api_with_mcp(config, system_prompt, user_prompt)
     raise ValueError(
-        "Unsupported WORKOUTAGENT_LLM_PROVIDER. Use 'openai_compat' or 'openai_mcp'."
+        "Unsupported WORKOUTAGENT_LLM_PROVIDER. Use 'openai_compat'."
     )
 
 
@@ -1022,7 +896,6 @@ def _build_validation_repair_notes(error: Exception) -> list[str]:
 def generate_plan_response(payload: PlanRequest) -> PlanResponse:
     prompt_bundle = prepare_plan_generation(payload)
     config = _load_config()
-    model_used = config.model or "unconfigured"
 
     try:
         try:
@@ -1104,12 +977,6 @@ def generate_plan_response(payload: PlanRequest) -> PlanResponse:
                 )
                 validate_plan_response(plan, prompt_bundle, split_plan)
 
-        plan.metadata = build_plan_metadata(
-            prompt_bundle,
-            provider_requested=config.provider,
-            provider_used=config.provider,
-            model_used=model_used,
-        )
         return plan
     except Exception as exc:
         logger.exception(
@@ -1125,7 +992,6 @@ def generate_plan_response(payload: PlanRequest) -> PlanResponse:
 def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
     prompt_bundle = prepare_plan_generation(payload.intake)
     config = _load_config()
-    model_used = config.model or "unconfigured"
 
     try:
         edit_system_prompt, edit_user_prompt = _build_plan_edit_prompts(
@@ -1208,12 +1074,6 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
                 )
                 plan = _restore_unselected_days(plan, payload)
                 validate_plan_response(plan, prompt_bundle)
-        plan.metadata = build_plan_metadata(
-            prompt_bundle,
-            provider_requested=config.provider,
-            provider_used=config.provider,
-            model_used=model_used,
-        )
         return plan
     except Exception as exc:
         logger.exception(

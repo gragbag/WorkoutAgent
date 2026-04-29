@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "api": "python3 -m uvicorn api.main:app --reload --port 8000",
-    "mcp": "python3 -m api.mcp_server",
     "import:exercises": "python3 api/import_gym_dataset.py",
     "eval:plans": "python3 -m api.evaluate_plans --limit 1",
     "build": "vite build",

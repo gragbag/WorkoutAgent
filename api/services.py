@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from api.exercise_library import get_candidate_exercises
 from api.intake import normalize_plan_request
-from api.models import PlanDay, PlanExercise, PlanMetadata, PlanRequest, PlanResponse, PromptBundle
+from api.models import PlanDay, PlanExercise, PlanRequest, PlanResponse, PromptBundle
 from api.rag import retrieve_relevant_context
 from api.split_templates import shortlist_split_templates
 
@@ -63,9 +63,7 @@ def prepare_plan_generation(payload: PlanRequest) -> PromptBundle:
     normalized = normalize_plan_request(payload)
     split_template_matches = shortlist_split_templates(normalized)
     compatible_exercises = get_candidate_exercises(normalized, limit=40)
-    retrieved_context, retrieval_truncated = retrieve_relevant_context(
-        normalized, compatible_exercises
-    )
+    retrieved_context = retrieve_relevant_context(normalized, compatible_exercises)
     retrieved_titles = {chunk.title for chunk in retrieved_context}
 
     candidate_exercises = [
@@ -84,27 +82,7 @@ def prepare_plan_generation(payload: PlanRequest) -> PromptBundle:
         normalized_input=normalized,
         candidate_exercises=candidate_exercises,
         retrieved_context=retrieved_context,
-        retrieval_truncated=retrieval_truncated,
         split_template_matches=split_template_matches,
-    )
-
-
-def build_plan_metadata(
-    prompt_bundle: PromptBundle,
-    *,
-    provider_requested: str,
-    provider_used: str,
-    model_used: str,
-) -> PlanMetadata:
-    return PlanMetadata(
-        provider_requested=provider_requested,
-        provider_used=provider_used,
-        model_used=model_used,
-        candidate_exercise_count=len(prompt_bundle.candidate_exercises),
-        retrieved_chunk_count=len(prompt_bundle.retrieved_context),
-        retrieval_strategy="local_sparse_embedding_rag",
-        retrieval_truncated=prompt_bundle.retrieval_truncated,
-        generated_at=datetime.now(timezone.utc).isoformat(),
     )
 
 

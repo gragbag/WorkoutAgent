@@ -407,16 +407,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       athlete_snapshot: plan.athleteSnapshot ?? [],
       coaching_notes: plan.coachingNotes ?? [],
       days: Array.isArray(plan.days) ? plan.days.map((day) => normalizeSavedPlanDay(day)) : [],
-      metadata: {
-        provider_requested: plan.metadata?.provider_requested ?? 'saved_plan',
-        provider_used: plan.metadata?.provider_used ?? 'saved_plan',
-        model_used: plan.metadata?.model_used ?? 'saved_plan',
-        candidate_exercise_count: plan.metadata?.candidate_exercise_count ?? 0,
-        retrieved_chunk_count: plan.metadata?.retrieved_chunk_count ?? 0,
-        retrieval_strategy: plan.metadata?.retrieval_strategy ?? 'saved_plan_edit',
-        retrieval_truncated: plan.metadata?.retrieval_truncated ?? false,
-        generated_at: plan.metadata?.generated_at ?? plan.savedAt,
-      },
     }
   }
 
@@ -760,9 +750,9 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               <strong className="mt-2 block text-3xl text-[#f9f2e8]">{savedPlans.length}</strong>
             </div>
             <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Retrieval mode</p>
+              <p className={sectionLabelClass}>Planner status</p>
               <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                {generatedPlan?.metadata?.retrieval_strategy ?? 'Ready for first generation'}
+                {generatedPlan ? 'Plan ready to review' : 'Ready for first generation'}
               </p>
             </div>
           </div>
