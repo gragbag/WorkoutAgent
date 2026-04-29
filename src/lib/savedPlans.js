@@ -7,7 +7,6 @@ function mapRowToSavedPlan(row) {
     summary: row.summary,
     metadata: row.metadata ?? {},
     days: row.days ?? [],
-    optionalDays: row.optional_days ?? [],
     coachingNotes: row.coaching_notes ?? [],
     athleteSnapshot: row.athlete_snapshot ?? [],
     intake: row.intake ?? {},
@@ -17,9 +16,7 @@ function mapRowToSavedPlan(row) {
 export async function fetchSavedPlans(userId) {
   const { data, error } = await supabase
     .from('saved_plans')
-    .select(
-      'id, saved_at, summary, metadata, days, optional_days, coaching_notes, athlete_snapshot, intake'
-    )
+    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
     .eq('user_id', userId)
     .order('saved_at', { ascending: false })
 
@@ -36,7 +33,6 @@ export async function createSavedPlan(userId, plan, intake) {
     summary: plan.summary,
     metadata: plan.metadata,
     days: plan.days,
-    optional_days: plan.optional_days ?? [],
     coaching_notes: plan.coaching_notes,
     athlete_snapshot: plan.athlete_snapshot,
     intake,
@@ -45,9 +41,7 @@ export async function createSavedPlan(userId, plan, intake) {
   const { data, error } = await supabase
     .from('saved_plans')
     .insert(payload)
-    .select(
-      'id, saved_at, summary, metadata, days, optional_days, coaching_notes, athlete_snapshot, intake'
-    )
+    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
     .single()
 
   if (error) {
@@ -74,7 +68,6 @@ export async function updateSavedPlan(userId, planId, plan, intake) {
     summary: plan.summary,
     metadata: plan.metadata,
     days: plan.days,
-    optional_days: plan.optional_days ?? [],
     coaching_notes: plan.coaching_notes,
     athlete_snapshot: plan.athlete_snapshot,
     intake,
@@ -85,9 +78,7 @@ export async function updateSavedPlan(userId, planId, plan, intake) {
     .update(payload)
     .eq('user_id', userId)
     .eq('id', planId)
-    .select(
-      'id, saved_at, summary, metadata, days, optional_days, coaching_notes, athlete_snapshot, intake'
-    )
+    .select('id, saved_at, summary, metadata, days, coaching_notes, athlete_snapshot, intake')
     .single()
 
   if (error) {

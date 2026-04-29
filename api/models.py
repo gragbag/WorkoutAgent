@@ -24,18 +24,7 @@ ActivityLevelType = Literal[
     "Very active",
 ]
 
-WorkoutLocationType = Literal["Home", "Gym"]
-
-CardioPreferenceType = Literal[
-    "No cardio preference",
-    "Enjoys cardio",
-    "Low-impact only",
-    "Prefer minimal cardio",
-]
-
 IntensityPreferenceType = Literal["Light", "Moderate", "Challenging"]
-
-VarietyPreferenceType = Literal["Keep it simple", "Mix it up", "No preference"]
 
 AgeRangeType = Literal[
     "Under 18",
@@ -53,6 +42,7 @@ DayNameType = Literal[
     "Thursday",
     "Friday",
     "Saturday",
+    "Sunday",
 ]
 
 
@@ -65,18 +55,13 @@ class PlanRequest(BaseModel):
     experience: ExperienceType
     equipment: list[EquipmentType] = Field(..., min_length=1, max_length=10)
     age_range: AgeRangeType
-    days_per_week: int = Field(..., ge=2, le=6)
+    days_per_week: int = Field(..., ge=2, le=7)
     session_length_min: int = Field(..., ge=20, le=90)
     session_length_max: int = Field(..., ge=20, le=90)
-    available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=6)
-    flexible_training_days: list[DayNameType] = Field(default_factory=list, max_length=3)
+    available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=7)
     injuries: str = ""
     current_activity_level: ActivityLevelType
-    workout_location: WorkoutLocationType
-    equipment_details: str = ""
-    cardio_preference: CardioPreferenceType
     intensity_preference: IntensityPreferenceType
-    variety_preference: VarietyPreferenceType
     notes: str = ""
 
 
@@ -88,20 +73,15 @@ class NormalizedAthleteProfile(BaseModel):
 
 class NormalizedConstraints(BaseModel):
     equipment: list[EquipmentType] = Field(..., min_length=1, max_length=10)
-    workout_location: WorkoutLocationType
-    equipment_details: str
-    days_per_week: int = Field(..., ge=2, le=6)
+    days_per_week: int = Field(..., ge=2, le=7)
     session_length_min: int = Field(..., ge=20, le=90)
     session_length_max: int = Field(..., ge=20, le=90)
-    available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=6)
-    flexible_training_days: list[DayNameType] = Field(default_factory=list, max_length=3)
+    available_training_days: list[DayNameType] = Field(..., min_length=2, max_length=7)
     injuries: str
 
 
 class NormalizedPreferences(BaseModel):
-    cardio_preference: CardioPreferenceType
     intensity_preference: IntensityPreferenceType
-    variety_preference: VarietyPreferenceType
     notes: str
 
 
@@ -116,9 +96,7 @@ class ExerciseCandidate(BaseModel):
     primary_muscle_group: str = Field(..., min_length=1, max_length=80)
     secondary_muscles: list[str] = Field(default_factory=list, max_length=6)
     equipment_used: str = Field(..., min_length=1, max_length=80)
-    difficulty: str = Field(..., min_length=1, max_length=40)
     movement_pattern: str = Field(..., min_length=1, max_length=80)
-    suitable_goals: list[str] = Field(default_factory=list, max_length=6)
     coaching_cues: list[str] = Field(default_factory=list, max_length=4)
     contraindications: list[str] = Field(default_factory=list, max_length=5)
 
@@ -132,11 +110,38 @@ class RetrievedContextChunk(BaseModel):
     equipment_used: str = Field(..., min_length=1, max_length=80)
 
 
+class SplitTemplateDay(BaseModel):
+    focus: str = Field(..., min_length=1, max_length=80)
+    key_patterns: list[str] = Field(..., min_length=1, max_length=4)
+
+
+class SplitTemplate(BaseModel):
+    id: str = Field(..., min_length=1, max_length=80)
+    label: str = Field(..., min_length=1, max_length=120)
+    summary: str = Field(..., min_length=1, max_length=240)
+    days_per_week: int = Field(..., ge=2, le=7)
+    equipment_tags: list[EquipmentType] = Field(default_factory=list, max_length=10)
+    day_blueprints: list[SplitTemplateDay] = Field(..., min_length=2, max_length=7)
+    when_to_prefer: list[str] = Field(default_factory=list, max_length=4)
+    when_to_avoid: list[str] = Field(default_factory=list, max_length=4)
+
+
+class SplitTemplateMatch(BaseModel):
+    template_id: str = Field(..., min_length=1, max_length=80)
+    label: str = Field(..., min_length=1, max_length=120)
+    score: float = Field(..., ge=0)
+    summary: str = Field(..., min_length=1, max_length=240)
+    rationale: list[str] = Field(default_factory=list, max_length=5)
+    day_blueprints: list[SplitTemplateDay] = Field(..., min_length=2, max_length=7)
+
+
 class PromptBundle(BaseModel):
     normalized_input: NormalizedPlanRequest
     candidate_exercises: list[ExerciseCandidate]
     retrieved_context: list[RetrievedContextChunk]
     retrieval_truncated: bool = False
+    split_template_matches: list[SplitTemplateMatch] = Field(default_factory=list, max_length=6)
+
 
 
 class SplitPlanDay(BaseModel):
@@ -149,8 +154,7 @@ class SplitPlanDay(BaseModel):
 class SplitPlan(BaseModel):
     summary: str = Field(..., min_length=1, max_length=220)
     rationale: list[str] = Field(..., min_length=2, max_length=6)
-    days: list[SplitPlanDay] = Field(..., min_length=2, max_length=6)
-    optional_days: list[SplitPlanDay] = Field(default_factory=list, max_length=3)
+    days: list[SplitPlanDay] = Field(..., min_length=2, max_length=7)
 
 
 class PlanReview(BaseModel):
@@ -177,7 +181,7 @@ class PlanExercise(BaseModel):
 class PlanDay(BaseModel):
     day: DayNameType
     focus: str = Field(..., min_length=1, max_length=80)
-    duration_minutes: int = Field(..., ge=20, le=90)
+    duration_minutes: int = Field(..., ge=1, le=90)
     warmup: list[str] = Field(..., min_length=2, max_length=5)
     exercises: list[PlanExercise] = Field(..., min_length=2, max_length=6)
     cooldown: list[str] = Field(..., min_length=1, max_length=3)
@@ -199,14 +203,12 @@ class PlanResponse(BaseModel):
     summary: str
     athlete_snapshot: list[str] = Field(..., min_length=3, max_length=6)
     coaching_notes: list[str] = Field(..., min_length=3, max_length=6)
-    days: list[PlanDay] = Field(..., min_length=2, max_length=6)
-    optional_days: list[PlanDay] = Field(default_factory=list, max_length=3)
+    days: list[PlanDay] = Field(..., min_length=2, max_length=7)
     metadata: PlanMetadata
 
 
 class PlanEditSelection(BaseModel):
     day: DayNameType
-    is_optional: bool = False
     focus: str = Field(default="", max_length=80)
     exercise_names: list[str] = Field(default_factory=list, max_length=6)
 
@@ -215,7 +217,7 @@ class PlanEditRequest(BaseModel):
     intake: PlanRequest
     original_plan: PlanResponse
     edit_instructions: str = Field(..., min_length=1, max_length=2000)
-    selected_sessions: list[PlanEditSelection] = Field(default_factory=list, max_length=9)
+    selected_sessions: list[PlanEditSelection] = Field(default_factory=list, max_length=14)
     preserve_unselected: bool = True
 
 

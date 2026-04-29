@@ -1,0 +1,253 @@
+[
+  {
+    "id": "full_body_2day",
+    "label": "Full Body 2-day",
+    "summary": "Two broad full-body sessions with simple movement coverage and manageable weekly recovery.",
+    "days_per_week": 2,
+    "equipment_tags": ["Bodyweight", "Dumbbells", "Resistance bands", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar", "Mat / floor space"],
+    "day_blueprints": [
+      {"focus": "Full Body A", "key_patterns": ["squat", "horizontal push", "horizontal pull", "core"]},
+      {"focus": "Full Body B", "key_patterns": ["hinge", "vertical push", "vertical pull", "single-leg"]}
+    ],
+    "when_to_prefer": ["best when only two sessions are available", "easy to keep balanced"],
+    "when_to_avoid": ["less ideal for people wanting a lot of specialization"]
+  },
+  {
+    "id": "upper_lower_2day",
+    "label": "Upper/Lower 2-day",
+    "summary": "One upper session and one lower session for lifters who prefer simpler focus per day.",
+    "days_per_week": 2,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar"],
+    "day_blueprints": [
+      {"focus": "Upper Body", "key_patterns": ["horizontal push", "horizontal pull", "vertical push", "arms"]},
+      {"focus": "Lower Body", "key_patterns": ["squat", "hinge", "single-leg", "core"]}
+    ],
+    "when_to_prefer": ["good when sessions are long enough for concentrated work"],
+    "when_to_avoid": ["less balanced if sessions need to stay very short"]
+  },
+  {
+    "id": "full_body_3day",
+    "label": "Full Body 3-day",
+    "summary": "Three balanced full-body sessions with slightly different emphasis across the week.",
+    "days_per_week": 3,
+    "equipment_tags": ["Bodyweight", "Dumbbells", "Resistance bands", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar", "Mat / floor space"],
+    "day_blueprints": [
+      {"focus": "Full Body A", "key_patterns": ["squat", "horizontal push", "horizontal pull"]},
+      {"focus": "Full Body B", "key_patterns": ["hinge", "vertical push", "core"]},
+      {"focus": "Full Body C", "key_patterns": ["single-leg", "vertical pull", "horizontal push"]}
+    ],
+    "when_to_prefer": ["strong default for general fitness", "easy to keep balanced across three days"],
+    "when_to_avoid": ["can feel repetitive for athletes wanting strong specialization"]
+  },
+  {
+    "id": "ppl_3day",
+    "label": "Push/Pull/Legs 3-day",
+    "summary": "Three specialized days with clearer body-part separation and higher per-session concentration.",
+    "days_per_week": 3,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Push", "key_patterns": ["horizontal push", "vertical push", "accessory press"]},
+      {"focus": "Pull", "key_patterns": ["horizontal pull", "vertical pull", "rear delt"]},
+      {"focus": "Legs", "key_patterns": ["squat", "hinge", "single-leg", "core"]}
+    ],
+    "when_to_prefer": ["good for athletes who like focused days", "fits longer sessions well"],
+    "when_to_avoid": ["less ideal for very short sessions or beginners needing more frequency per muscle"]
+  },
+  {
+    "id": "upper_lower_full_body_3day",
+    "label": "Upper/Lower/Full Body 3-day",
+    "summary": "A hybrid split that gives two focused days plus one broad catch-all session.",
+    "days_per_week": 3,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar"],
+    "day_blueprints": [
+      {"focus": "Upper Body", "key_patterns": ["horizontal push", "horizontal pull", "vertical push"]},
+      {"focus": "Lower Body", "key_patterns": ["squat", "hinge", "single-leg"]},
+      {"focus": "Full Body", "key_patterns": ["vertical pull", "compound lower", "core"]}
+    ],
+    "when_to_prefer": ["useful when you want balance plus some variety"],
+    "when_to_avoid": ["less simple than a plain full-body plan"]
+  },
+  {
+    "id": "upper_lower_4day",
+    "label": "Upper/Lower 4-day",
+    "summary": "A classic four-day structure with enough room for balanced volume and varied emphasis.",
+    "days_per_week": 4,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar"],
+    "day_blueprints": [
+      {"focus": "Upper A", "key_patterns": ["horizontal push", "horizontal pull", "arms"]},
+      {"focus": "Lower A", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Upper B", "key_patterns": ["vertical push", "vertical pull", "upper back"]},
+      {"focus": "Lower B", "key_patterns": ["single-leg", "posterior chain", "core"]}
+    ],
+    "when_to_prefer": ["strong default for four sessions per week", "supports balanced hypertrophy-style training"],
+    "when_to_avoid": ["less ideal if recovery is poor or sessions must be very short"]
+  },
+  {
+    "id": "full_body_4day",
+    "label": "Full Body 4-day",
+    "summary": "Frequent full-body training with smaller per-session workloads and repeated movement practice.",
+    "days_per_week": 4,
+    "equipment_tags": ["Bodyweight", "Dumbbells", "Resistance bands", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar", "Mat / floor space"],
+    "day_blueprints": [
+      {"focus": "Full Body A", "key_patterns": ["squat", "push", "pull"]},
+      {"focus": "Full Body B", "key_patterns": ["hinge", "push", "core"]},
+      {"focus": "Full Body C", "key_patterns": ["single-leg", "pull", "push"]},
+      {"focus": "Full Body D", "key_patterns": ["compound lower", "upper back", "core"]}
+    ],
+    "when_to_prefer": ["helpful when shorter sessions are spread across more days"],
+    "when_to_avoid": ["can feel too repetitive for athletes wanting specialization"]
+  },
+  {
+    "id": "bro_split_5day",
+    "label": "Body-Part 5-day",
+    "summary": "Five specialized sessions with high variety and strong per-session focus.",
+    "days_per_week": 5,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Chest", "key_patterns": ["horizontal push", "accessory press"]},
+      {"focus": "Back", "key_patterns": ["horizontal pull", "vertical pull"]},
+      {"focus": "Legs", "key_patterns": ["squat", "hinge", "single-leg"]},
+      {"focus": "Shoulders", "key_patterns": ["vertical push", "lateral raise", "rear delt"]},
+      {"focus": "Arms and Core", "key_patterns": ["biceps", "triceps", "core"]}
+    ],
+    "when_to_prefer": ["best for athletes wanting focused body-part days"],
+    "when_to_avoid": ["not ideal for beginners or limited session time"]
+  },
+  {
+    "id": "upper_lower_push_pull_legs_5day",
+    "label": "Upper/Lower/Push/Pull/Legs 5-day",
+    "summary": "A higher-frequency five-day hybrid with both broad and specialized sessions.",
+    "days_per_week": 5,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Upper", "key_patterns": ["horizontal push", "horizontal pull", "arms"]},
+      {"focus": "Lower", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Push", "key_patterns": ["horizontal push", "vertical push"]},
+      {"focus": "Pull", "key_patterns": ["horizontal pull", "vertical pull"]},
+      {"focus": "Legs", "key_patterns": ["single-leg", "posterior chain", "core"]}
+    ],
+    "when_to_prefer": ["good for lifters wanting five days without repeating the same focus"],
+    "when_to_avoid": ["can be too much for poor recovery or very short sessions"]
+  },
+  {
+    "id": "push_pull_legs_upper_lower_5day",
+    "label": "Push/Pull/Legs/Upper/Lower 5-day",
+    "summary": "A five-day hybrid that starts with a push-pull-legs rotation and finishes with balanced upper-lower sessions.",
+    "days_per_week": 5,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Push", "key_patterns": ["horizontal push", "vertical push", "triceps"]},
+      {"focus": "Pull", "key_patterns": ["horizontal pull", "vertical pull", "biceps"]},
+      {"focus": "Legs", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Upper", "key_patterns": ["horizontal push", "horizontal pull", "arms"]},
+      {"focus": "Lower", "key_patterns": ["single-leg", "posterior chain", "core"]}
+    ],
+    "when_to_prefer": ["good for lifters who want a PPL feel with extra balanced upper and lower work", "useful when a user explicitly asks for PPL plus upper-lower structure"],
+    "when_to_avoid": ["can be too dense for poor recovery or inconsistent attendance"]
+  },
+  {
+    "id": "ppl_6day",
+    "label": "Push/Pull/Legs 6-day",
+    "summary": "A classic six-day push-pull-legs rotation run twice per week for high frequency and specialization.",
+    "days_per_week": 6,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Push A", "key_patterns": ["horizontal push", "vertical push", "triceps"]},
+      {"focus": "Pull A", "key_patterns": ["horizontal pull", "vertical pull", "biceps"]},
+      {"focus": "Legs A", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Push B", "key_patterns": ["horizontal push", "vertical push", "shoulders"]},
+      {"focus": "Pull B", "key_patterns": ["horizontal pull", "vertical pull", "rear delt"]},
+      {"focus": "Legs B", "key_patterns": ["single-leg", "posterior chain", "core"]}
+    ],
+    "when_to_prefer": ["good for athletes who recover well and want repeated muscle exposure", "fits lifters who like specialized training days"],
+    "when_to_avoid": ["not ideal for beginners, poor recovery, or very short sessions"]
+  },
+  {
+    "id": "upper_lower_6day",
+    "label": "Upper/Lower 6-day",
+    "summary": "An alternating upper-lower schedule across six days for lifters who want frequent but simple day structure.",
+    "days_per_week": 6,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Upper A", "key_patterns": ["horizontal push", "horizontal pull", "arms"]},
+      {"focus": "Lower A", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Upper B", "key_patterns": ["vertical push", "vertical pull", "upper back"]},
+      {"focus": "Lower B", "key_patterns": ["single-leg", "posterior chain", "core"]},
+      {"focus": "Upper C", "key_patterns": ["horizontal push", "vertical pull", "arms"]},
+      {"focus": "Lower C", "key_patterns": ["squat", "hinge", "single-leg"]}
+    ],
+    "when_to_prefer": ["useful when you want six days but still prefer a simple repeating structure", "works well for balanced lifters who like predictability"],
+    "when_to_avoid": ["can feel repetitive if the athlete wants more variety"]
+  },
+  {
+    "id": "arnold_ppl_6day",
+    "label": "Arnold + PPL 6-day",
+    "summary": "A six-day hybrid that blends chest-back and shoulder-arm specialization with a dedicated legs pattern.",
+    "days_per_week": 6,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Chest and Back A", "key_patterns": ["horizontal push", "horizontal pull", "vertical pull"]},
+      {"focus": "Shoulders and Arms A", "key_patterns": ["vertical push", "biceps", "triceps"]},
+      {"focus": "Legs A", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Chest and Back B", "key_patterns": ["incline push", "horizontal pull", "upper back"]},
+      {"focus": "Shoulders and Arms B", "key_patterns": ["vertical push", "lateral raise", "arms"]},
+      {"focus": "Legs B", "key_patterns": ["single-leg", "posterior chain", "core"]}
+    ],
+    "when_to_prefer": ["good for advanced lifters who want high variety and body-part emphasis"],
+    "when_to_avoid": ["not ideal for simple plans or limited recovery"]
+  },
+  {
+    "id": "body_part_7day",
+    "label": "Body-Part 7-day",
+    "summary": "A full seven-day body-part split with one main emphasis each day and very high specialization.",
+    "days_per_week": 7,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Chest", "key_patterns": ["horizontal push", "incline push"]},
+      {"focus": "Back", "key_patterns": ["horizontal pull", "vertical pull"]},
+      {"focus": "Legs", "key_patterns": ["squat", "hinge", "single-leg"]},
+      {"focus": "Shoulders", "key_patterns": ["vertical push", "lateral raise", "rear delt"]},
+      {"focus": "Arms", "key_patterns": ["biceps", "triceps", "forearms"]},
+      {"focus": "Glutes and Hamstrings", "key_patterns": ["hinge", "posterior chain", "single-leg"]},
+      {"focus": "Core and Conditioning", "key_patterns": ["core", "carry", "conditioning"]}
+    ],
+    "when_to_prefer": ["best for athletes who explicitly want daily specialization", "works when recovery and schedule are both excellent"],
+    "when_to_avoid": ["not ideal for general fitness, beginners, or limited equipment"]
+  },
+  {
+    "id": "ppl_upper_lower_7day",
+    "label": "PPL + Upper/Lower 7-day",
+    "summary": "A seven-day hybrid that combines a push-pull-legs rotation with extra upper-lower balance work.",
+    "days_per_week": 7,
+    "equipment_tags": ["Dumbbells", "Bench", "Barbell / rack", "Machines / cables", "Pull-up bar", "Kettlebells"],
+    "day_blueprints": [
+      {"focus": "Push", "key_patterns": ["horizontal push", "vertical push", "triceps"]},
+      {"focus": "Pull", "key_patterns": ["horizontal pull", "vertical pull", "biceps"]},
+      {"focus": "Legs", "key_patterns": ["squat", "hinge", "core"]},
+      {"focus": "Upper A", "key_patterns": ["horizontal push", "horizontal pull", "arms"]},
+      {"focus": "Lower A", "key_patterns": ["single-leg", "posterior chain", "core"]},
+      {"focus": "Upper B", "key_patterns": ["vertical push", "vertical pull", "upper back"]},
+      {"focus": "Lower B", "key_patterns": ["squat", "hinge", "single-leg"]}
+    ],
+    "when_to_prefer": ["good for high-frequency lifters who still want balanced weekly coverage"],
+    "when_to_avoid": ["too dense for athletes with poor recovery or inconsistent attendance"]
+  },
+  {
+    "id": "full_body_7day_microcycle",
+    "label": "Full Body 7-day Microcycle",
+    "summary": "Seven shorter full-body sessions with rotating emphasis for athletes who prefer daily training without hard body-part splits.",
+    "days_per_week": 7,
+    "equipment_tags": ["Bodyweight", "Dumbbells", "Resistance bands", "Bench", "Barbell / rack", "Machines / cables", "Kettlebells", "Pull-up bar", "Mat / floor space"],
+    "day_blueprints": [
+      {"focus": "Full Body A", "key_patterns": ["squat", "horizontal push", "horizontal pull"]},
+      {"focus": "Full Body B", "key_patterns": ["hinge", "vertical push", "core"]},
+      {"focus": "Full Body C", "key_patterns": ["single-leg", "vertical pull", "carry"]},
+      {"focus": "Full Body D", "key_patterns": ["squat", "push", "upper back"]},
+      {"focus": "Full Body E", "key_patterns": ["hinge", "pull", "core"]},
+      {"focus": "Full Body F", "key_patterns": ["single-leg", "push", "arms"]},
+      {"focus": "Full Body G", "key_patterns": ["compound lower", "vertical pull", "conditioning"]}
+    ],
+    "when_to_prefer": ["useful when daily training is desired but sessions stay short and manageable"],
+    "when_to_avoid": ["not ideal if the athlete prefers highly specialized days"]
+  }
+]

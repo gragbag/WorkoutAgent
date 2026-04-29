@@ -26,23 +26,13 @@ const activityLevels = [
   'Moderately active',
   'Very active',
 ]
-const workoutLocations = ['Home', 'Gym']
-const cardioPreferences = [
-  'No cardio preference',
-  'Enjoys cardio',
-  'Low-impact only',
-  'Prefer minimal cardio',
-]
 const intensityPreferences = ['Light', 'Moderate', 'Challenging']
-const varietyPreferences = ['Keep it simple', 'Mix it up', 'No preference']
-const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const navItems = [
   { id: 'home', label: 'Home' },
   { id: 'generate', label: 'AI Planner' },
   { id: 'saved', label: 'Saved Plans' },
   { id: 'edit', label: 'Edit Plan' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'progress', label: 'Progress' },
   { id: 'profile', label: 'Profile' },
 ]
 
@@ -66,17 +56,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
   const [equipment, setEquipment] = useState(['Bodyweight', 'Dumbbells', 'Bench'])
   const [ageRange, setAgeRange] = useState(ageRanges[1])
   const [activityLevel, setActivityLevel] = useState(activityLevels[1])
-  const [workoutLocation, setWorkoutLocation] = useState('Gym')
-  const [cardioPreference, setCardioPreference] = useState(cardioPreferences[3])
   const [intensityPreference, setIntensityPreference] = useState(intensityPreferences[1])
-  const [varietyPreference, setVarietyPreference] = useState(varietyPreferences[0])
-  const [daysPerWeek, setDaysPerWeek] = useState(4)
-  const [sessionLengthMin, setSessionLengthMin] = useState(35)
   const [sessionLengthMax, setSessionLengthMax] = useState(50)
   const [trainingDays, setTrainingDays] = useState(['Monday', 'Wednesday', 'Friday', 'Saturday'])
-  const [flexibleDays, setFlexibleDays] = useState(['Tuesday'])
   const [injuries, setInjuries] = useState('')
-  const [equipmentDetails, setEquipmentDetails] = useState('')
   const [notes, setNotes] = useState('')
   const [generatedPlan, setGeneratedPlan] = useState(null)
   const [savedPlans, setSavedPlans] = useState([])
@@ -87,6 +70,9 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
   const [submitError, setSubmitError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
   const [savedPlansError, setSavedPlansError] = useState('')
+  const [renamingPlanId, setRenamingPlanId] = useState(null)
+  const [renamingTitle, setRenamingTitle] = useState('')
+  const [isSavingPlanTitle, setIsSavingPlanTitle] = useState(false)
   const [planBeingEdited, setPlanBeingEdited] = useState(null)
   const [editInstructions, setEditInstructions] = useState('')
   const [selectedEditSessions, setSelectedEditSessions] = useState({})
@@ -129,9 +115,8 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     }
   }, [userId])
 
-  const selectedTrainingDays = useMemo(() => {
-    return trainingDays.slice(0, daysPerWeek)
-  }, [trainingDays, daysPerWeek])
+  const selectedTrainingDays = useMemo(() => trainingDays, [trainingDays])
+  const daysPerWeek = selectedTrainingDays.length
 
   const payloadPreview = useMemo(
     () => ({
@@ -139,85 +124,33 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       equipment,
       age_range: ageRange,
       days_per_week: daysPerWeek,
-      session_length_min: sessionLengthMin,
+      session_length_min: sessionLengthMax,
       session_length_max: sessionLengthMax,
       available_training_days: selectedTrainingDays,
-      flexible_training_days: flexibleDays.filter((day) => !selectedTrainingDays.includes(day)),
       injuries,
       current_activity_level: activityLevel,
-      workout_location: workoutLocation,
-      equipment_details: equipmentDetails,
-      cardio_preference: cardioPreference,
       intensity_preference: intensityPreference,
-      variety_preference: varietyPreference,
       notes,
     }),
     [
       activityLevel,
       ageRange,
-      cardioPreference,
-      daysPerWeek,
       equipment,
-      equipmentDetails,
       experience,
-      flexibleDays,
       intensityPreference,
       injuries,
       notes,
       selectedTrainingDays,
       sessionLengthMax,
-      sessionLengthMin,
-      varietyPreference,
-      workoutLocation,
     ]
   )
 
   const profileStats = [
-    { label: 'Current setup', value: `${workoutLocation} · ${equipment.join(', ')}` },
-    { label: 'Training rhythm', value: `${daysPerWeek} days · ${sessionLengthMin}-${sessionLengthMax} min` },
+    { label: 'Current setup', value: equipment.join(', ') },
+    { label: 'Training rhythm', value: `${daysPerWeek} days · up to ${sessionLengthMax} min` },
     { label: 'Baseline activity', value: activityLevel },
-    { label: 'Planning preferences', value: `${intensityPreference} · ${varietyPreference}` },
+    { label: 'Planning preferences', value: intensityPreference },
   ]
-
-  const calendarItemsByDay = useMemo(() => {
-    const grouped = Object.fromEntries(weekDays.map((day) => [day, []]))
-
-    for (const plan of savedPlans) {
-      for (const day of plan.days ?? []) {
-        grouped[day.day]?.push({
-          planId: plan.id,
-          savedAt: plan.savedAt,
-          summary: plan.summary,
-          focus: day.focus,
-          durationMinutes: day.duration_minutes,
-          optional: false,
-        })
-      }
-
-      for (const day of plan.optionalDays ?? []) {
-        grouped[day.day]?.push({
-          planId: plan.id,
-          savedAt: plan.savedAt,
-          summary: plan.summary,
-          focus: day.focus,
-          durationMinutes: day.duration_minutes,
-          optional: true,
-        })
-      }
-    }
-
-    for (const day of weekDays) {
-      grouped[day].sort((left, right) => {
-        if (left.optional !== right.optional) {
-          return left.optional ? 1 : -1
-        }
-
-        return new Date(right.savedAt).getTime() - new Date(left.savedAt).getTime()
-      })
-    }
-
-    return grouped
-  }, [savedPlans])
 
   function toggleEquipment(option) {
     setEquipment((currentEquipment) => {
@@ -243,21 +176,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
         return currentDays.filter((item) => item !== day)
       }
 
-      if (currentDays.length >= 6) {
-        return currentDays
-      }
-
-      return [...currentDays, day]
-    })
-  }
-
-  function toggleFlexibleDay(day) {
-    setFlexibleDays((currentDays) => {
-      if (currentDays.includes(day)) {
-        return currentDays.filter((item) => item !== day)
-      }
-
-      if (currentDays.length >= 3) {
+      if (currentDays.length >= 7) {
         return currentDays
       }
 
@@ -326,6 +245,52 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     }
   }
 
+  function handleStartRenameSavedPlan(plan) {
+    setRenamingPlanId(plan.id)
+    setRenamingTitle(plan.summary)
+    setSavedPlansError('')
+    setSaveMessage('')
+  }
+
+  function handleCancelRenameSavedPlan() {
+    setRenamingPlanId(null)
+    setRenamingTitle('')
+  }
+
+  async function handleSaveSavedPlanTitle(plan) {
+    const trimmedTitle = renamingTitle.trim()
+    if (!trimmedTitle || trimmedTitle === plan.summary) {
+      handleCancelRenameSavedPlan()
+      return
+    }
+
+    setIsSavingPlanTitle(true)
+    setSavedPlansError('')
+    setSaveMessage('')
+
+    try {
+      const updatedPlan = await updateSavedPlan(
+        userId,
+        plan.id,
+        {
+          ...mapSavedPlanToApiPlan(plan),
+          summary: trimmedTitle,
+        },
+        plan.intake
+      )
+
+      setSavedPlans((currentPlans) =>
+        currentPlans.map((item) => (item.id === updatedPlan.id ? updatedPlan : item))
+      )
+      setSaveMessage('Saved plan title updated.')
+      handleCancelRenameSavedPlan()
+    } catch (error) {
+      setSavedPlansError(error instanceof Error ? error.message : 'Could not rename plan.')
+    } finally {
+      setIsSavingPlanTitle(false)
+    }
+  }
+
   function toggleSavedPlanExpanded(planId) {
     setExpandedSavedPlans((current) => ({
       ...current,
@@ -333,8 +298,8 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     }))
   }
 
-  function getSessionEditKey(day, isOptional = false) {
-    return `${isOptional ? 'optional' : 'required'}:${day}`
+  function getSessionEditKey(day) {
+    return `required:${day}`
   }
 
   function mapSavedPlanToApiPlan(plan) {
@@ -343,7 +308,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       athlete_snapshot: plan.athleteSnapshot ?? [],
       coaching_notes: plan.coachingNotes ?? [],
       days: plan.days ?? [],
-      optional_days: plan.optionalDays ?? [],
       metadata: {
         provider_requested: plan.metadata?.provider_requested ?? 'saved_plan',
         provider_used: plan.metadata?.provider_used ?? 'saved_plan',
@@ -378,8 +342,8 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     setEditPlanMessage('')
   }
 
-  function toggleEditSession(day, isOptional = false, focus = '') {
-    const key = getSessionEditKey(day, isOptional)
+  function toggleEditSession(day, focus = '') {
+    const key = getSessionEditKey(day)
     setSelectedEditSessions((current) => {
       if (current[key]) {
         const next = { ...current }
@@ -389,16 +353,16 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
       return {
         ...current,
-        [key]: { day, is_optional: isOptional, focus },
+        [key]: { day, focus },
       }
     })
   }
 
-  function toggleEditExercise(day, exerciseName, isOptional = false, focus = '') {
-    const key = getSessionEditKey(day, isOptional)
+  function toggleEditExercise(day, exerciseName, focus = '') {
+    const key = getSessionEditKey(day)
     setSelectedEditSessions((current) => ({
       ...current,
-      [key]: current[key] ?? { day, is_optional: isOptional, focus },
+      [key]: current[key] ?? { day, focus },
     }))
 
     setSelectedEditExercises((current) => {
@@ -581,7 +545,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
         <p className={sectionLabelClass}>{title}</p>
         <h3 className="mt-2 text-xl font-semibold text-[#f9f2e8]">{plan.summary}</h3>
         <div className="mt-4 grid gap-3">
-          {[...(plan.days ?? []), ...((plan.optional_days ?? plan.optionalDays) ?? [])].map((day) => (
+          {(plan.days ?? []).map((day) => (
             <div key={`${title}-${day.day}-${day.focus}`} className="rounded-2xl border border-white/8 bg-black/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -645,16 +609,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
           ))}
         </nav>
 
-          <div className="mt-6 grid gap-3">
+        <div className="mt-6 grid gap-3">
           <div className={`${cardClass} p-4`}>
             <p className={sectionLabelClass}>Saved plans</p>
             <strong className="mt-2 block text-3xl text-[#f9f2e8]">{savedPlans.length}</strong>
-          </div>
-          <div className={`${cardClass} p-4`}>
-            <p className={sectionLabelClass}>Latest provider</p>
-            <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-              {generatedPlan?.metadata?.provider_used ?? 'No live generation yet'}
-            </p>
           </div>
         </div>
 
@@ -721,16 +679,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               title: 'Saved Plans',
               text: 'Review the plans saved to your account.',
               target: 'saved',
-            },
-            {
-              title: 'Calendar',
-              text: 'See your saved workouts grouped by weekday, including optional sessions.',
-              target: 'calendar',
-            },
-            {
-              title: 'Progress',
-              text: 'Check the latest backend and generation signals.',
-              target: 'progress',
             },
           ].map((item) => (
             <button
@@ -867,52 +815,21 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               <section className="grid gap-3">
                 <div>
                   <p className={sectionLabelClass}>Schedule</p>
-                  <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">
-                    When can they actually train?
-                  </h3>
                 </div>
 
                 <div className="grid gap-[18px] md:grid-cols-2">
                   <div className="grid gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className={sectionLabelClass} htmlFor="days-per-week">
-                        Training days
-                      </label>
-                      <span className="text-sm text-[#ffcfad]">{daysPerWeek} days/week</span>
+                    <label className={sectionLabelClass}>Training days</label>
+                    <div className={`${cardClass} px-4 py-3`}>
+                      <span className="text-sm text-[#ffcfad]">{daysPerWeek} days/week selected</span>
                     </div>
-                    <input
-                      id="days-per-week"
-                      className="w-full accent-[#f08f56]"
-                      type="range"
-                      min="2"
-                      max="6"
-                      value={daysPerWeek}
-                      onChange={(event) => setDaysPerWeek(Number(event.target.value))}
-                    />
                   </div>
 
                   <div className="grid gap-3">
-                    <label className={sectionLabelClass}>Session length range</label>
+                    <label className={sectionLabelClass}>Session length max</label>
                     <div className="grid gap-3">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-[#cfc5b7]">Minimum</span>
-                        <span className="text-sm text-[#ffcfad]">{sessionLengthMin} min</span>
-                      </div>
-                      <input
-                        className="w-full accent-[#f08f56]"
-                        type="range"
-                        min="20"
-                        max="90"
-                        step="5"
-                        value={sessionLengthMin}
-                        onChange={(event) =>
-                          setSessionLengthMin(
-                            Math.min(Number(event.target.value), sessionLengthMax)
-                          )
-                        }
-                      />
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-[#cfc5b7]">Maximum</span>
+                        <span className="text-sm text-[#cfc5b7]">Max session time</span>
                         <span className="text-sm text-[#ffcfad]">{sessionLengthMax} min</span>
                       </div>
                       <input
@@ -922,11 +839,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                         max="90"
                         step="5"
                         value={sessionLengthMax}
-                        onChange={(event) =>
-                          setSessionLengthMax(
-                            Math.max(Number(event.target.value), sessionLengthMin)
-                          )
-                        }
+                        onChange={(event) => setSessionLengthMax(Number(event.target.value))}
                       />
                     </div>
                   </div>
@@ -955,49 +868,15 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                     })}
                   </div>
                   <p className="m-0 text-sm leading-6 text-[#c2b7a6]">
-                    Pick at least two days. The request uses the first {daysPerWeek}{' '}
-                    selected days.
+                    At least two days are required.
                   </p>
                 </div>
 
-                <div className="grid gap-3">
-                  <label className={sectionLabelClass}>Flexible or bonus days</label>
-                  <div className="flex flex-wrap gap-2.5">
-                    {weekDays.map((day) => {
-                      const selected = flexibleDays.includes(day)
-                      const disabled = selectedTrainingDays.includes(day)
-
-                      return (
-                        <button
-                          key={`flex-${day}`}
-                          type="button"
-                          disabled={disabled}
-                          className={`rounded-full border px-3.5 py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-[#f08f56]/30 ${
-                            disabled
-                              ? 'cursor-not-allowed border-white/6 bg-white/[0.02] text-[#7e786e]'
-                              : selected
-                                ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df] hover:-translate-y-0.5'
-                                : 'border-white/12 bg-white/[0.03] text-[#f8f2e8] hover:-translate-y-0.5'
-                          }`}
-                          onClick={() => toggleFlexibleDay(day)}
-                        >
-                          {day}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <p className="m-0 text-sm leading-6 text-[#c2b7a6]">
-                    Optional days can be used for bonus mobility, cardio, or accessory work.
-                  </p>
-                </div>
               </section>
 
               <section className="grid gap-3">
                 <div>
                   <p className={sectionLabelClass}>Constraints</p>
-                  <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">
-                    Limitations, gear, and anything the model should avoid
-                  </h3>
                 </div>
 
                 <div className="grid gap-3">
@@ -1021,86 +900,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                         </button>
                       )
                     })}
-                  </div>
-                  <p className="m-0 text-sm leading-6 text-[#c2b7a6]">
-                    Pick every setup the user can realistically train with.
-                  </p>
-                </div>
-
-                <div className="grid gap-[18px] md:grid-cols-2">
-                  <div className="grid gap-3">
-                    <label className={sectionLabelClass} htmlFor="workout-location">
-                      Workout location
-                    </label>
-                    <select
-                      id="workout-location"
-                      className={inputClass}
-                      value={workoutLocation}
-                      onChange={(event) => setWorkoutLocation(event.target.value)}
-                    >
-                      {workoutLocations.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid gap-3">
-                    <label className={sectionLabelClass} htmlFor="cardio-preference">
-                      Cardio preference
-                    </label>
-                    <select
-                      id="cardio-preference"
-                      className={inputClass}
-                      value={cardioPreference}
-                      onChange={(event) => setCardioPreference(event.target.value)}
-                    >
-                      {cardioPreferences.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid gap-[18px] md:grid-cols-2">
-                  <div className="grid gap-3">
-                    <label className={sectionLabelClass} htmlFor="equipment-details">
-                      Equipment details (optional)
-                    </label>
-                    <input
-                      id="equipment-details"
-                      className={inputClass}
-                      value={equipmentDetails}
-                      onChange={(event) => setEquipmentDetails(event.target.value)}
-                      placeholder="Example: adjustable dumbbells up to 50 lb, flat bench, no squat rack"
-                    />
-                    <p className="m-0 text-sm leading-6 text-[#c2b7a6]">
-                      Add specifics the checklist does not capture, like weight limits,
-                      missing attachments, or one-off pieces of gear.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-[18px] md:grid-cols-2">
-                    <div className="grid gap-3">
-                      <label className={sectionLabelClass} htmlFor="variety-preference">
-                        Variety preference
-                      </label>
-                      <select
-                        id="variety-preference"
-                        className={inputClass}
-                        value={varietyPreference}
-                        onChange={(event) => setVarietyPreference(event.target.value)}
-                      >
-                        {varietyPreferences.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
                 </div>
 
@@ -1190,195 +989,70 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-              ) : (
-                <p className="mt-4 m-0 leading-6 text-[#efe7d8]">
-                  {ageRange}, {activityLevel.toLowerCase()} and training mostly at{' '}
-                  {workoutLocation.toLowerCase()}. Training on{' '}
-                  {selectedTrainingDays.join(', ')} for roughly {sessionLengthMin}-{sessionLengthMax}-minute
-                  sessions with a {intensityPreference.toLowerCase()} feel.
-                </p>
-              )}
+              ) : null}
             </article>
 
-            <div className="mt-[22px] grid gap-3.5 md:grid-cols-2">
-              {generatedPlan
-                ? generatedPlan.days.map((session) => (
-                    <article
-                      key={session.day}
-                      className={`${cardClass} min-h-[170px] space-y-3 p-[18px]`}
-                    >
-                      <p className={sectionLabelClass}>{session.day}</p>
-                      <h3 className="text-[1.2rem] leading-tight font-semibold">
-                        {session.focus}
-                      </h3>
-                      <p className="text-sm leading-6 text-[#efe7d8]">
-                        {session.duration_minutes} minutes
-                      </p>
-                      <div className="text-sm leading-6 text-[#efe7d8]">
-                        <p className="font-medium text-[#ffcfad]">Warmup</p>
-                        <p>{session.warmup.join(', ')}</p>
+            {generatedPlan ? (
+              <div className="mt-[22px] grid gap-3.5 md:grid-cols-2">
+                {generatedPlan.days.map((session) => (
+                  <article
+                    key={session.day}
+                    className={`${cardClass} min-h-[170px] space-y-3 p-[18px]`}
+                  >
+                    <p className={sectionLabelClass}>{session.day}</p>
+                    <h3 className="text-[1.2rem] leading-tight font-semibold">
+                      {session.focus}
+                    </h3>
+                    <p className="text-sm leading-6 text-[#efe7d8]">
+                      {session.duration_minutes} minutes
+                    </p>
+                    <div className="text-sm leading-6 text-[#efe7d8]">
+                      <p className="font-medium text-[#ffcfad]">Warmup</p>
+                      <p>{session.warmup.join(', ')}</p>
+                    </div>
+                    <div className="text-sm leading-6 text-[#efe7d8]">
+                      <p className="font-medium text-[#ffcfad]">Main work</p>
+                      <div className="space-y-3">
+                        {session.exercises.map((exercise) => (
+                          <div
+                            key={`${session.day}-${exercise.name}`}
+                            className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5"
+                          >
+                            <p className="font-medium text-[#f8f2e8]">
+                              {exercise.name} {exercise.sets}x{exercise.reps}
+                            </p>
+                            <p className="text-[#cfc5b7]">
+                              {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
+                              {exercise.rest_seconds}s rest
+                            </p>
+                            {exercise.exercise_explanation ? (
+                              <p className="text-[#efe7d8]">
+                                Why: {exercise.exercise_explanation}
+                              </p>
+                            ) : null}
+                            {renderExerciseDetails(exercise)}
+                            <p className="text-[#cfc5b7]">{exercise.intensity_note}</p>
+                            <p className="text-[#cfc5b7]">
+                              Swap option: {exercise.substitution_note}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-sm leading-6 text-[#efe7d8]">
-                        <p className="font-medium text-[#ffcfad]">Main work</p>
-                        <div className="space-y-3">
-                          {session.exercises.map((exercise) => (
-                            <div
-                              key={`${session.day}-${exercise.name}`}
-                              className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5"
-                            >
-                              <p className="font-medium text-[#f8f2e8]">
-                                {exercise.name} {exercise.sets}x{exercise.reps}
-                              </p>
-                              <p className="text-[#cfc5b7]">
-                                {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
-                                {exercise.rest_seconds}s rest
-                              </p>
-                              {exercise.exercise_explanation ? (
-                                <p className="text-[#efe7d8]">
-                                  Why: {exercise.exercise_explanation}
-                                </p>
-                              ) : null}
-                              {renderExerciseDetails(exercise)}
-                              <p className="text-[#cfc5b7]">{exercise.intensity_note}</p>
-                              <p className="text-[#cfc5b7]">
-                                Swap option: {exercise.substitution_note}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </article>
-                  ))
-                : (
-                    <article className={`${cardClass} min-h-[170px] p-[18px] md:col-span-2`}>
-                      <p className={sectionLabelClass}>Awaiting generation</p>
-                      <p className="mt-2 leading-6 text-[#efe7d8]">
-                        Submit the intake form to see the weekly structure, exercises, coach
-                        notes, and optional sessions returned by the model.
-                      </p>
-                    </article>
-                  )}
-            </div>
-
-            {generatedPlan?.optional_days?.length ? (
-              <div className="mt-[22px] grid gap-3.5">
-                <p className={sectionLabelClass}>Optional sessions</p>
-                {generatedPlan.optional_days.map((session) => (
-                    <article
-                      key={`optional-${session.day}`}
-                      className={`${cardClass} min-h-[170px] space-y-3 p-[18px]`}
-                    >
-                      <p className={sectionLabelClass}>{session.day}</p>
-                      <h3 className="text-[1.2rem] leading-tight font-semibold">
-                        {session.focus}
-                      </h3>
-                      <p className="text-sm leading-6 text-[#efe7d8]">
-                        {session.duration_minutes} minutes
-                      </p>
-                      <div className="text-sm leading-6 text-[#efe7d8]">
-                        <p className="font-medium text-[#8ec9a6]">Main work</p>
-                        <div className="space-y-2">
-                          {session.exercises.map((exercise) => (
-                            <div
-                              key={`optional-${session.day}-${exercise.name}`}
-                              className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5"
-                            >
-                              <p className="font-medium text-[#f8f2e8]">
-                                {exercise.name} {exercise.sets}x{exercise.reps}
-                              </p>
-                              <p className="text-[#cfc5b7]">
-                                {exercise.primary_muscle_group} · {exercise.equipment_used} ·{' '}
-                                {exercise.rest_seconds}s rest
-                              </p>
-                              {exercise.exercise_explanation ? (
-                                <p className="text-[#efe7d8]">
-                                  Why: {exercise.exercise_explanation}
-                                </p>
-                              ) : null}
-                              {renderExerciseDetails(exercise)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm leading-6 text-[#cfc5b7]">
-                        {session.coach_notes.join(' ')}
-                      </p>
-                    </article>
-                  ))}
+                    </div>
+                  </article>
+                ))}
               </div>
             ) : null}
 
-            <div className="mt-[22px] grid gap-3.5 md:grid-cols-2">
-              {generatedPlan ? (
-                generatedPlan.coaching_notes.slice(0, 4).map((note) => (
+            {generatedPlan ? (
+              <div className="mt-[22px] grid gap-3.5 md:grid-cols-2">
+                {generatedPlan.coaching_notes.slice(0, 4).map((note) => (
                   <article key={note} className={`${cardClass} grid gap-2 p-[18px]`}>
                     <p className={sectionLabelClass}>Coach note</p>
                     <span className="leading-6 text-[#efe7d8]">{note}</span>
                   </article>
-                ))
-              ) : (
-                <>
-                  <article className={`${cardClass} grid gap-2 p-[18px]`}>
-                    <p className={sectionLabelClass}>Plan preference</p>
-                    <strong className="text-[1.05rem]">
-                      {intensityPreference} intensity + {varietyPreference}
-                    </strong>
-                    <span className="leading-6 text-[#efe7d8]">
-                      The plan should match how hard the user wants to work and how
-                      much novelty they want week to week.
-                    </span>
-                  </article>
-                  <article className={`${cardClass} grid gap-2 p-[18px]`}>
-                    <p className={sectionLabelClass}>Constraint check</p>
-                    <strong className="text-[1.05rem]">
-                      {workoutLocation} · {equipment.join(', ')}
-                    </strong>
-                    <span className="leading-6 text-[#efe7d8]">
-                      The model should use the actual setup: {equipmentDetails}
-                    </span>
-                  </article>
-                </>
-              )}
-            </div>
-
-            {generatedPlan?.metadata ? (
-              <article className={`${cardClass} mt-[22px] p-5`}>
-                <p className={sectionLabelClass}>Response metadata</p>
-                <div className="mt-3 grid gap-2 text-sm leading-6 text-[#efe7d8] md:grid-cols-2">
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Requested:</span>{' '}
-                    {generatedPlan.metadata.provider_requested}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Used:</span>{' '}
-                    {generatedPlan.metadata.provider_used}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Model:</span>{' '}
-                    {generatedPlan.metadata.model_used}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Candidates:</span>{' '}
-                    {generatedPlan.metadata.candidate_exercise_count}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Retrieved chunks:</span>{' '}
-                    {generatedPlan.metadata.retrieved_chunk_count}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Retrieval:</span>{' '}
-                    {generatedPlan.metadata.retrieval_strategy}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Truncated:</span>{' '}
-                    {generatedPlan.metadata.retrieval_truncated ? 'Yes' : 'No'}
-                  </p>
-                  <p>
-                    <span className="font-medium text-[#ffcfad]">Generated:</span>{' '}
-                    {generatedPlan.metadata.generated_at}
-                  </p>
-                </div>
-              </article>
+                ))}
+              </div>
             ) : null}
 
             <article className={`${cardClass} mt-[22px] p-5`}>
@@ -1406,13 +1080,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 </p>
               )}
             </article>
-
-            <article className={`${cardClass} mt-[22px] p-5`}>
-              <p className={sectionLabelClass}>Submission payload preview</p>
-              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm leading-6 text-[#efe7d8]">
-                {JSON.stringify(payloadPreview, null, 2)}
-              </pre>
-            </article>
           </section>
         </section>
       </>
@@ -1424,19 +1091,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       <section className="grid gap-4">
         <article className={`${panelClass} ${panelGlowClass}`}>
           <p className={sectionLabelClass}>Saved plans</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Saved count</p>
-                <strong className="mt-2 block text-3xl text-[#f9f2e8]">{savedPlans.length}</strong>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Storage</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  Supabase-backed plan library tied to the signed-in account.
-                </p>
-              </div>
-            </div>
-          </article>
+          <p className="mt-3 text-base leading-7 text-[#efe7d8]">
+            Review, rename, edit, or delete the plans you want to keep around.
+          </p>
+        </article>
 
         <section className="grid gap-4">
           {savedPlansError ? (
@@ -1466,60 +1124,81 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               return (
                 <article key={plan.id} className={`${panelClass} ${panelGlowClass}`}>
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <button
-                      type="button"
-                      onClick={() => toggleSavedPlanExpanded(plan.id)}
-                      className="-m-1 flex flex-1 items-start justify-between gap-4 rounded-[22px] p-1 text-left transition hover:bg-white/[0.02]"
-                    >
+                    <div className="flex flex-1 items-start justify-between gap-4">
                       <div>
                         <p className={sectionLabelClass}>
                           Saved {new Date(plan.savedAt).toLocaleString()}
                         </p>
-                        <h3 className="mt-2 text-2xl leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
-                          {plan.summary}
-                        </h3>
+                        {renamingPlanId === plan.id ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                              type="text"
+                              value={renamingTitle}
+                              onChange={(event) => setRenamingTitle(event.target.value)}
+                              onClick={(event) => event.stopPropagation()}
+                              className={`${inputClass} max-w-xl`}
+                            />
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void handleSaveSavedPlanTitle(plan)
+                              }}
+                              disabled={isSavingPlanTitle}
+                              className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isSavingPlanTitle ? 'Saving...' : 'Save title'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                handleCancelRenameSavedPlan()
+                              }}
+                              className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <h3 className="mt-2 text-2xl leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
+                            {plan.summary}
+                          </h3>
+                        )}
                         <p className="mt-3 text-sm leading-6 text-[#cfc5b7]">
                           {plan.days.length} main day{plan.days.length === 1 ? '' : 's'}
-                          {plan.optionalDays?.length
-                            ? ` · ${plan.optionalDays.length} optional session${
-                                plan.optionalDays.length === 1 ? '' : 's'
-                              }`
-                            : ''}
                         </p>
                       </div>
-                      <span className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl text-[#f5efe4]">
+                      <button
+                        type="button"
+                        onClick={() => toggleSavedPlanExpanded(plan.id)}
+                        className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl text-[#f5efe4] transition hover:bg-white/[0.06]"
+                      >
                         {isExpanded ? '⌄' : '›'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleStartEditPlan(plan)}
-                      className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSavedPlan(plan.id)}
-                      className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-2">
-                    <div className={`${cardClass} p-4`}>
-                      <p className={sectionLabelClass}>Provider</p>
-                      <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                        {plan.metadata.provider_used} · {plan.metadata.model_used}
-                      </p>
+                      </button>
                     </div>
-                    <div className={`${cardClass} p-4`}>
-                      <p className={sectionLabelClass}>Retrieved context</p>
-                      <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                        {plan.metadata.candidate_exercise_count} candidates ·{' '}
-                        {plan.metadata.retrieved_chunk_count} chunks
-                      </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartRenameSavedPlan(plan)}
+                        className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditPlan(plan)}
+                        className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSavedPlan(plan.id)}
+                        className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
 
@@ -1596,84 +1275,10 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                         )
                       })}
 
-                      {plan.optionalDays?.length ? (
-                        <article className={`${cardClass} p-3.5 lg:col-span-2`}>
-                          <p className={sectionLabelClass}>Optional sessions</p>
-                          <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                            {plan.optionalDays.map((day) => {
-                              const optionalStateKey = `${plan.id}-optional-${day.day}`
-                              const isOptionalExpanded = Boolean(
-                                expandedSavedPlanDays[optionalStateKey]
-                              )
-
-                              return (
-                                <div
-                                  key={optionalStateKey}
-                                  className="rounded-2xl border border-[#5b9575]/20 bg-[#5b9575]/8 p-3.5"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      toggleSavedPlanDayExpanded(plan.id, `optional-${day.day}`)
-                                    }
-                                    className="-m-1 flex w-full items-start justify-between gap-3 rounded-[18px] p-1 text-left transition hover:bg-white/[0.02]"
-                                  >
-                                    <div>
-                                      <p className={sectionLabelClass}>{day.day}</p>
-                                      <h4 className="mt-1 text-base font-semibold text-[#d8f2df]">
-                                        {day.focus}
-                                      </h4>
-                                      <p className="mt-1 text-sm leading-6 text-[#efe7d8]">
-                                        {day.duration_minutes} minutes · {day.exercises.length}{' '}
-                                        exercises
-                                      </p>
-                                    </div>
-                                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-lg text-[#f5efe4]">
-                                      {isOptionalExpanded ? '⌄' : '›'}
-                                    </span>
-                                  </button>
-
-                                  {isOptionalExpanded ? (
-                                    <div className="mt-3 text-sm leading-6 text-[#efe7d8]">
-                                      <div className="space-y-2">
-                                        {day.exercises.map((exercise) => (
-                                          <div
-                                            key={`${optionalStateKey}-${exercise.name}`}
-                                            className="rounded-xl border border-white/8 bg-black/10 px-3 py-2"
-                                          >
-                                            <p className="font-medium text-[#f8f2e8]">
-                                              {exercise.name} {exercise.sets}x{exercise.reps}
-                                            </p>
-                                            <p className="text-[#cfc5b7]">
-                                              {exercise.primary_muscle_group} ·{' '}
-                                              {exercise.equipment_used} · {exercise.rest_seconds}s
-                                              rest
-                                            </p>
-                                            {exercise.exercise_explanation ? (
-                                              <p className="text-[#efe7d8]">
-                                                Why: {exercise.exercise_explanation}
-                                              </p>
-                                            ) : null}
-                                            {renderExerciseDetails(exercise)}
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <p className="mt-2 text-[#cfc5b7]">
-                                        {day.coach_notes.join(' ')}
-                                      </p>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </article>
-                      ) : null}
                     </div>
                   ) : (
                     <div className="mt-5 rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-[#cfc5b7]">
-                      Click to expand and see every scheduled day, exercises, cooldowns,
-                      and optional sessions.
+                      Click to expand and see every scheduled day, exercises, and cooldowns.
                     </div>
                   )}
                 </article>
@@ -1681,90 +1286,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
             })
           )}
         </section>
-      </section>
-    )
-  }
-
-  function renderCalendarPage() {
-    return (
-      <section className="grid gap-4">
-        <article className={`${panelClass} ${panelGlowClass}`}>
-          <p className={sectionLabelClass}>Weekly calendar</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Saved plans</p>
-              <strong className="mt-2 block text-3xl text-[#f9f2e8]">{savedPlans.length}</strong>
-            </div>
-            <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Optional sessions</p>
-              <strong className="mt-2 block text-3xl text-[#f9f2e8]">
-                {savedPlans.reduce(
-                  (total, plan) => total + (plan.optionalDays?.length ?? 0),
-                  0
-                )}
-              </strong>
-            </div>
-            <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>View</p>
-              <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                Sessions grouped by weekday from your saved plans.
-              </p>
-            </div>
-          </div>
-        </article>
-
-        {savedPlansError ? (
-          <article className={`${panelClass} ${panelGlowClass}`}>
-            <p className={sectionLabelClass}>Storage error</p>
-            <p className="mt-3 text-base leading-7 text-[#efe7d8]">{savedPlansError}</p>
-          </article>
-        ) : isLoadingSavedPlans ? (
-          <article className={`${panelClass} ${panelGlowClass}`}>
-            <p className={sectionLabelClass}>Loading calendar</p>
-            <p className="mt-3 text-base leading-7 text-[#efe7d8]">
-              Pulling saved plan sessions from Supabase.
-            </p>
-          </article>
-        ) : (
-          <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {weekDays.map((day) => (
-              <article key={day} className={`${panelClass} ${panelGlowClass}`}>
-                <p className={sectionLabelClass}>{day}</p>
-                <div className="mt-4 grid gap-3">
-                  {calendarItemsByDay[day].length ? (
-                    calendarItemsByDay[day].map((item) => (
-                      <div key={`${day}-${item.planId}-${item.focus}`} className={`${cardClass} p-4`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <h3 className="text-base font-semibold text-[#f9f2e8]">{item.focus}</h3>
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-[0.72rem] uppercase tracking-[0.14em] ${
-                              item.optional
-                                ? 'bg-[#5b9575]/16 text-[#d8f2df]'
-                                : 'bg-[#f08f56]/16 text-[#ffcfad]'
-                            }`}
-                          >
-                            {item.optional ? 'Bonus' : 'Main'}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-[#efe7d8]">{item.summary}</p>
-                        <p className="mt-2 text-sm leading-6 text-[#cfc5b7]">
-                          {item.durationMinutes} minutes · saved{' '}
-                          {new Date(item.savedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className={`${cardClass} p-4`}>
-                      <p className="text-sm leading-6 text-[#cfc5b7]">
-                        No saved sessions scheduled for this day yet.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
       </section>
     )
   }
@@ -1798,300 +1319,177 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
     return (
       <section className="grid gap-6">
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <form className={`${panelClass} ${panelGlowClass}`} onSubmit={handleSubmitPlanEdit}>
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className={sectionLabelClass}>Edit workspace</p>
-                <h2 className="mt-2 text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
-                  {planBeingEdited.summary}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
-                  Pick the sessions or exercises you want to change, then explain what
-                  should be removed, replaced, simplified, or rewritten.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  disabled={isSubmittingEdit}
-                  className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-4 py-2.5 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmittingEdit ? 'Updating...' : 'Update Plan'}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetEditWorkspace}
-                  className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
-                >
-                  Clear
-                </button>
-              </div>
+        <form className={`${panelClass} ${panelGlowClass}`} onSubmit={handleSubmitPlanEdit}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className={sectionLabelClass}>Edit workspace</p>
+              <h2 className="mt-2 text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-[#f9f2e8]">
+                {planBeingEdited.summary}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
+                Pick the sessions or exercises you want to change, then explain what
+                should be removed, replaced, simplified, or rewritten.
+              </p>
             </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Target plan</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  Saved {new Date(planBeingEdited.savedAt).toLocaleString()}
-                </p>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Selected sessions</p>
-                <strong className="mt-2 block text-3xl text-[#f9f2e8]">{selectedSessionCount}</strong>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Feedback mode</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  Preserve untouched sessions unless the request implies a broader rewrite.
-                </p>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={isSubmittingEdit}
+                className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-4 py-2.5 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmittingEdit ? 'Updating...' : 'Update Plan'}
+              </button>
+              <button
+                type="button"
+                onClick={resetEditWorkspace}
+                className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+              >
+                Clear
+              </button>
             </div>
+          </div>
 
-            <div className="mt-6 grid gap-4">
-              <article className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Required sessions</p>
-                <div className="mt-3 grid gap-3">
-                  {planBeingEdited.days.map((day) => {
-                    const sessionKey = getSessionEditKey(day.day, false)
-                    const isSelected = Boolean(selectedEditSessions[sessionKey])
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className={`${cardClass} p-4`}>
+              <p className={sectionLabelClass}>Target plan</p>
+              <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
+                Saved {new Date(planBeingEdited.savedAt).toLocaleString()}
+              </p>
+            </div>
+            <div className={`${cardClass} p-4`}>
+              <p className={sectionLabelClass}>Selected sessions</p>
+              <strong className="mt-2 block text-3xl text-[#f9f2e8]">{selectedSessionCount}</strong>
+            </div>
+            <div className={`${cardClass} p-4`}>
+              <p className={sectionLabelClass}>Feedback mode</p>
+              <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
+                Preserve untouched sessions unless the request implies a broader rewrite.
+              </p>
+            </div>
+          </div>
 
-                    return (
-                      <div key={sessionKey} className="rounded-2xl border border-white/8 bg-black/10 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className={sectionLabelClass}>{day.day}</p>
-                            <p className="mt-1 font-medium text-[#f8f2e8]">{day.focus}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleEditSession(day.day, false, day.focus)}
-                            className={`rounded-full px-3 py-2 text-sm transition ${
-                              isSelected
-                                ? 'bg-[#f08f56]/18 text-[#ffcfad]'
-                                : 'border border-white/12 bg-white/[0.03] text-[#f5efe4]'
-                            }`}
-                          >
-                            {isSelected ? 'Selected' : 'Select day'}
-                          </button>
+          <div className="mt-6 grid gap-4">
+            <article className={`${cardClass} p-4`}>
+              <p className={sectionLabelClass}>Required sessions</p>
+              <div className="mt-3 grid gap-3">
+                {planBeingEdited.days.map((day) => {
+                  const sessionKey = getSessionEditKey(day.day, false)
+                  const isSelected = Boolean(selectedEditSessions[sessionKey])
+
+                  return (
+                    <div key={sessionKey} className="rounded-2xl border border-white/8 bg-black/10 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className={sectionLabelClass}>{day.day}</p>
+                          <p className="mt-1 font-medium text-[#f8f2e8]">{day.focus}</p>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {day.exercises.map((exercise) => {
-                            const selectedExercises = selectedEditExercises[sessionKey] ?? []
-                            const isExerciseSelected = selectedExercises.includes(exercise.name)
-
-                            return (
-                              <button
-                                key={`${sessionKey}-${exercise.name}`}
-                                type="button"
-                                onClick={() =>
-                                  toggleEditExercise(day.day, exercise.name, false, day.focus)
-                                }
-                                className={`rounded-full border px-3 py-2 text-sm transition ${
-                                  isExerciseSelected
-                                    ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df]'
-                                    : 'border-white/12 bg-white/[0.03] text-[#f8f2e8]'
-                                }`}
-                              >
-                                {exercise.name}
-                              </button>
-                            )
-                          })}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleEditSession(day.day, false, day.focus)}
+                          className={`rounded-full px-3 py-2 text-sm transition ${
+                            isSelected
+                              ? 'bg-[#f08f56]/18 text-[#ffcfad]'
+                              : 'border border-white/12 bg-white/[0.03] text-[#f5efe4]'
+                          }`}
+                        >
+                          {isSelected ? 'Selected' : 'Select day'}
+                        </button>
                       </div>
-                    )
-                  })}
-                </div>
-              </article>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {day.exercises.map((exercise) => {
+                          const selectedExercises = selectedEditExercises[sessionKey] ?? []
+                          const isExerciseSelected = selectedExercises.includes(exercise.name)
 
-              {planBeingEdited.optionalDays?.length ? (
-                <article className={`${cardClass} p-4`}>
-                  <p className={sectionLabelClass}>Optional sessions</p>
-                  <div className="mt-3 grid gap-3">
-                    {planBeingEdited.optionalDays.map((day) => {
-                      const sessionKey = getSessionEditKey(day.day, true)
-                      const isSelected = Boolean(selectedEditSessions[sessionKey])
-
-                      return (
-                        <div key={sessionKey} className="rounded-2xl border border-white/8 bg-black/10 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className={sectionLabelClass}>{day.day}</p>
-                              <p className="mt-1 font-medium text-[#d8f2df]">{day.focus}</p>
-                            </div>
+                          return (
                             <button
+                              key={`${sessionKey}-${exercise.name}`}
                               type="button"
-                              onClick={() => toggleEditSession(day.day, true, day.focus)}
-                              className={`rounded-full px-3 py-2 text-sm transition ${
-                                isSelected
-                                  ? 'bg-[#5b9575]/16 text-[#d8f2df]'
-                                  : 'border border-white/12 bg-white/[0.03] text-[#f5efe4]'
+                              onClick={() =>
+                                toggleEditExercise(day.day, exercise.name, false, day.focus)
+                              }
+                              className={`rounded-full border px-3 py-2 text-sm transition ${
+                                isExerciseSelected
+                                  ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df]'
+                                  : 'border-white/12 bg-white/[0.03] text-[#f8f2e8]'
                               }`}
                             >
-                              {isSelected ? 'Selected' : 'Select day'}
+                              {exercise.name}
                             </button>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {day.exercises.map((exercise) => {
-                              const selectedExercises = selectedEditExercises[sessionKey] ?? []
-                              const isExerciseSelected = selectedExercises.includes(exercise.name)
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </article>
 
-                              return (
-                                <button
-                                  key={`${sessionKey}-${exercise.name}`}
-                                  type="button"
-                                  onClick={() =>
-                                    toggleEditExercise(day.day, exercise.name, true, day.focus)
-                                  }
-                                  className={`rounded-full border px-3 py-2 text-sm transition ${
-                                    isExerciseSelected
-                                      ? 'border-[#8ec9a6]/45 bg-[#5b9575]/16 text-[#d8f2df]'
-                                      : 'border-white/12 bg-white/[0.03] text-[#f8f2e8]'
-                                  }`}
-                                >
-                                  {exercise.name}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </article>
-              ) : null}
+            <article className={`${cardClass} p-4`}>
+              <label className={sectionLabelClass} htmlFor="edit-instructions">
+                Edit request
+              </label>
+              <textarea
+                id="edit-instructions"
+                rows="7"
+                className={`${inputClass} mt-3 min-h-36 resize-y`}
+                value={editInstructions}
+                onChange={(event) => setEditInstructions(event.target.value)}
+                placeholder="Example: Replace the Tuesday dumbbell lunges with something easier on my knees, remove one triceps isolation move, and make Friday feel more back-focused."
+                required
+              />
+              <p className="mt-3 text-sm leading-6 text-[#c2b7a6]">
+                Good prompts here mention what to remove, what to keep, any pain or
+                equipment issue, and whether you want a local edit or a broader rewrite.
+              </p>
+            </article>
 
-              <article className={`${cardClass} p-4`}>
-                <label className={sectionLabelClass} htmlFor="edit-instructions">
-                  Edit request
-                </label>
-                <textarea
-                  id="edit-instructions"
-                  rows="7"
-                  className={`${inputClass} mt-3 min-h-36 resize-y`}
-                  value={editInstructions}
-                  onChange={(event) => setEditInstructions(event.target.value)}
-                  placeholder="Example: Replace the Tuesday dumbbell lunges with something easier on my knees, remove one triceps isolation move, and make Friday feel more back-focused."
-                  required
-                />
-                <p className="mt-3 text-sm leading-6 text-[#c2b7a6]">
-                  Good prompts here mention what to remove, what to keep, any pain or
-                  equipment issue, and whether you want a local edit or a broader rewrite.
-                </p>
-              </article>
+            {editPlanError ? (
+              <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {editPlanError}
+              </div>
+            ) : null}
 
-              {editPlanError ? (
-                <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                  {editPlanError}
-                </div>
-              ) : null}
+            {editPlanMessage ? (
+              <div className="rounded-[18px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                {editPlanMessage}
+              </div>
+            ) : null}
+          </div>
+        </form>
 
-              {editPlanMessage ? (
-                <div className="rounded-[18px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  {editPlanMessage}
-                </div>
-              ) : null}
-            </div>
-          </form>
-
+        {editedPlanDraft ? (
           <section className="grid gap-4">
-            {renderPlanPreview(
-              mapSavedPlanToApiPlan(planBeingEdited),
-              'Original plan',
-              'No plan selected.'
-            )}
-
             {renderPlanPreview(
               editedPlanDraft,
               'Updated draft',
               'Generate an updated plan to preview the revised output here.'
             )}
 
-            {editedPlanDraft ? (
-              <article className={`${panelClass} ${panelGlowClass}`}>
-                <p className={sectionLabelClass}>Save changes</p>
-                <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
-                  This will overwrite the existing saved plan with the updated version.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSaveEditedPlan}
-                    disabled={isSavingEditedPlan}
-                    className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-5 py-3 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSavingEditedPlan ? 'Saving...' : 'Save changes to plan'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivePage('saved')}
-                    className="rounded-full border border-white/12 bg-white/[0.03] px-5 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
-                  >
-                    Back to saved plans
-                  </button>
-                </div>
-              </article>
-            ) : null}
+            <article className={`${panelClass} ${panelGlowClass}`}>
+              <p className={sectionLabelClass}>Save changes</p>
+              <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
+                This will overwrite the existing saved plan with the updated version.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveEditedPlan}
+                  disabled={isSavingEditedPlan}
+                  className="rounded-[16px] bg-[linear-gradient(135deg,#f08f56,#da5d3d)] px-5 py-3 text-sm font-semibold text-[#111] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingEditedPlan ? 'Saving...' : 'Save changes to plan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePage('saved')}
+                  className="rounded-full border border-white/12 bg-white/[0.03] px-5 py-3 text-sm text-[#f5efe4] transition hover:-translate-y-0.5"
+                >
+                  Back to saved plans
+                </button>
+              </div>
+            </article>
           </section>
-        </section>
-      </section>
-    )
-  }
-
-  function renderProgressPage() {
-    const latestMetadata = generatedPlan?.metadata ?? savedPlans[0]?.metadata ?? null
-
-    return (
-      <section className="grid gap-6">
-        <article className={`${panelClass} ${panelGlowClass}`}>
-          <p className={sectionLabelClass}>Progress overview</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Generated this session</p>
-              <strong className="mt-2 block text-3xl text-[#f9f2e8]">
-                {generatedPlan ? 1 : 0}
-              </strong>
-            </div>
-            <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Saved plan library</p>
-              <strong className="mt-2 block text-3xl text-[#f9f2e8]">{savedPlans.length}</strong>
-            </div>
-          </div>
-        </article>
-
-        <section className={`${panelClass} ${panelGlowClass}`}>
-          <p className={sectionLabelClass}>System snapshot</p>
-          {latestMetadata ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Provider</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  {latestMetadata.provider_used}
-                </p>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Model</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">{latestMetadata.model_used}</p>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Retrieved chunks</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  {latestMetadata.retrieved_chunk_count}
-                </p>
-              </div>
-              <div className={`${cardClass} p-4`}>
-                <p className={sectionLabelClass}>Retrieval mode</p>
-                <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                  {latestMetadata.retrieval_strategy}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-5 text-base leading-7 text-[#efe7d8]">
-              Generate a plan first to start collecting useful backend quality signals.
-            </p>
-          )}
-        </section>
+        ) : null}
       </section>
     )
   }
@@ -2125,25 +1523,13 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               </p>
             </div>
             <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Flexible days</p>
-              <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                {payloadPreview.flexible_training_days.length
-                  ? payloadPreview.flexible_training_days.join(', ')
-                  : 'None'}
-              </p>
-            </div>
-            <div className={`${cardClass} p-4`}>
               <p className={sectionLabelClass}>Injury considerations</p>
               <p className="mt-2 text-sm leading-6 text-[#efe7d8]">{injuries}</p>
             </div>
             <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Equipment details</p>
-              <p className="mt-2 text-sm leading-6 text-[#efe7d8]">{equipmentDetails}</p>
-            </div>
-            <div className={`${cardClass} p-4`}>
               <p className={sectionLabelClass}>Planning preferences</p>
               <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                {cardioPreference} · {intensityPreference} · {varietyPreference}
+                {intensityPreference}
               </p>
             </div>
           </div>
@@ -2163,14 +1549,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
     if (activePage === 'edit') {
       return renderEditPage()
-    }
-
-    if (activePage === 'calendar') {
-      return renderCalendarPage()
-    }
-
-    if (activePage === 'progress') {
-      return renderProgressPage()
     }
 
     if (activePage === 'profile') {

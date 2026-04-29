@@ -42,20 +42,9 @@ def normalize_plan_request(payload: PlanRequest) -> NormalizedPlanRequest:
         )
 
     normalized_days = ordered_days[: payload.days_per_week]
-    flexible_days = [
-        day
-        for day in _dedupe_days(payload.flexible_training_days)
-        if day not in normalized_days
-    ][:3]
-
     injuries = _normalize_free_text(
         payload.injuries,
         default="None reported",
-        max_length=400,
-    )
-    equipment_details = _normalize_free_text(
-        payload.equipment_details,
-        default="No extra equipment details provided",
         max_length=400,
     )
     notes = _normalize_free_text(
@@ -75,19 +64,14 @@ def normalize_plan_request(payload: PlanRequest) -> NormalizedPlanRequest:
         ),
         constraints=NormalizedConstraints(
             equipment=normalized_equipment,
-            workout_location=payload.workout_location,
-            equipment_details=equipment_details,
             days_per_week=payload.days_per_week,
             session_length_min=session_length_min,
             session_length_max=session_length_max,
             available_training_days=normalized_days,
-            flexible_training_days=flexible_days,
             injuries=injuries,
         ),
         preferences=NormalizedPreferences(
-            cardio_preference=payload.cardio_preference,
             intensity_preference=payload.intensity_preference,
-            variety_preference=payload.variety_preference,
             notes=notes,
         ),
     )

@@ -64,9 +64,7 @@ def build_knowledge_base_entry(exercise: ExerciseCandidate) -> str:
         f"Primary muscle: {exercise.primary_muscle_group}. "
         f"Secondary muscles: {', '.join(exercise.secondary_muscles) or 'none'}. "
         f"Equipment: {exercise.equipment_used}. "
-        f"Difficulty: {exercise.difficulty}. "
         f"Movement pattern: {exercise.movement_pattern}. "
-        f"Suitable goals: {', '.join(exercise.suitable_goals) or 'general fitness'}. "
         f"Coaching cues: {', '.join(exercise.coaching_cues) or 'move with control'}. "
         f"Contraindications: {', '.join(exercise.contraindications) or 'none'}."
     )
@@ -82,11 +80,7 @@ def build_retrieval_query(normalized: NormalizedPlanRequest) -> str:
             athlete.experience,
             athlete.current_activity_level,
             " ".join(constraints.equipment),
-            constraints.workout_location,
-            constraints.equipment_details,
-            preferences.cardio_preference,
             preferences.intensity_preference,
-            preferences.variety_preference,
             constraints.injuries,
             " ".join(constraints.available_training_days),
             preferences.notes,

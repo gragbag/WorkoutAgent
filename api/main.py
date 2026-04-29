@@ -1,3 +1,5 @@
+import logging
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import chat, health, plan, session
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="WorkoutAgent API", version="0.1.0")
 
