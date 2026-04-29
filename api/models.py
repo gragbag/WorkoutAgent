@@ -208,16 +208,17 @@ class PlanResponse(BaseModel):
 
 
 class PlanEditSelection(BaseModel):
+    selection_type: Literal["day", "exercise"] = "day"
     day: DayNameType
     focus: str = Field(default="", max_length=80)
-    exercise_names: list[str] = Field(default_factory=list, max_length=6)
+    exercise_name: str = Field(default="", max_length=120)
 
 
 class PlanEditRequest(BaseModel):
     intake: PlanRequest
     original_plan: PlanResponse
     edit_instructions: str = Field(..., min_length=1, max_length=2000)
-    selected_sessions: list[PlanEditSelection] = Field(default_factory=list, max_length=14)
+    selected_sessions: list[PlanEditSelection] = Field(default_factory=list, max_length=1)
     preserve_unselected: bool = True
 
 

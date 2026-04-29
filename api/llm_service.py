@@ -8,6 +8,7 @@ from typing import Any
 from urllib import error, request
 
 from api.coverage import expected_weekly_coverage
+from api.injury_rules import infer_injury_flags, render_injury_guidance
 from api.models import (
     PlanEditRequest,
     PlanRequest,
@@ -557,6 +558,15 @@ def _render_intake_context(
     )
 
 
+def _render_injury_guidance_block(prompt_bundle: PromptBundle) -> str:
+    injury_flags = infer_injury_flags(prompt_bundle.normalized_input.constraints.injuries)
+    guidance = render_injury_guidance(injury_flags)
+    if not guidance:
+        return ""
+
+    return "\nDerived injury guidance:\n- " + "\n- ".join(guidance)
+
+
 def _build_split_agent_prompts(
     prompt_bundle: PromptBundle, revision_notes: list[str] | None = None
 ) -> tuple[str, str]:
@@ -679,6 +689,7 @@ def _build_exercise_agent_prompts(
 Build the final workout plan from this split.
 
 {_render_intake_context(prompt_bundle, include_schedule=False, include_free_text_fields=False)}
+{_render_injury_guidance_block(prompt_bundle)}
 
 Chosen split:
 {_compact_json(split_plan.model_dump())}
@@ -691,6 +702,7 @@ Structured exercise context:
 Requirements:
 - Required sessions must stay on the split's required days.
 - Match equipment and injuries.
+- Treat any inferred injury limitation as a hard constraint even if the athlete wrote it briefly, for example "shoulder injury" or "knee pain".
 - Use the candidate list and retrieved context when they fit, but do not force a bad match.
 - Keep sessions coherent for their focus.
 - Treat the split's key_patterns as coverage targets, not as a one-exercise limit.
@@ -842,14 +854,16 @@ def _build_plan_edit_prompts(
         "Update only what is necessary to satisfy the request, keep the output realistic, and return valid JSON only."
     )
 
-    selected_sessions = [
+    selected_target = (
         {
-            "day": selection.day,
-            "focus": selection.focus,
-            "exercise_names": selection.exercise_names,
+            "selection_type": payload.selected_sessions[0].selection_type,
+            "day": payload.selected_sessions[0].day,
+            "focus": payload.selected_sessions[0].focus,
+            "exercise_name": payload.selected_sessions[0].exercise_name,
         }
-        for selection in payload.selected_sessions
-    ]
+        if payload.selected_sessions
+        else None
+    )
 
     user_prompt = f"""
 Revise this workout plan.
@@ -861,7 +875,7 @@ Original plan:
 {_compact_json(payload.original_plan.model_dump(exclude={"metadata"}))}
 
 Requested edit scope:
-{_compact_json({"selected_sessions": selected_sessions, "preserve_unselected": payload.preserve_unselected})}
+{_compact_json({"selected_target": selected_target, "preserve_unselected": payload.preserve_unselected})}
 
 User feedback:
 {payload.edit_instructions.strip()}
@@ -872,7 +886,12 @@ Structured exercise context:
 Requirements:
 - Return a complete updated plan in the same schema as the original output.
 - Respect schedule, equipment, and injuries from the intake.
-- If the user selected specific sessions or exercises, prioritize changes there first.
+- The selected target is exclusive: it is either one day or one exercise, never both.
+- If the selected_target.selection_type is "day", make changes only inside that day unless the user explicitly asks for a broader rewrite.
+- If the selected_target.selection_type is "exercise", make changes only to that exercise and leave all other exercises and days unchanged unless the user explicitly asks for a broader rewrite.
+- If the user selected a specific day or exercise and did not ask for a broader rewrite, keep every non-selected day functionally unchanged.
+- Do not add exercises, remove exercises, or change volume on non-selected days unless the user explicitly asks for a week-wide rebalance or a global constraint forces it.
+- When preserve_unselected is true, treat non-selected days as locked and copy them forward unchanged unless a change is strictly necessary.
 - Preserve unaffected sessions when possible, especially if preserve_unselected is true.
 - Remove, replace, or rewrite exercises when the feedback asks for it, but keep the week coherent.
 - Use the candidate list and retrieved context when they fit, but do not force a bad match.
@@ -893,6 +912,26 @@ Requirements:
 - Keep concise coach notes and short exercise explanations.
 """.strip()
     return system_prompt, user_prompt
+
+
+def _restore_unselected_days(
+    edited_plan: PlanResponse, payload: PlanEditRequest
+) -> PlanResponse:
+    if not payload.preserve_unselected or not payload.selected_sessions:
+        return edited_plan
+
+    selected_days = {selection.day for selection in payload.selected_sessions}
+    edited_by_day = {day.day: day for day in edited_plan.days}
+    restored_days = []
+
+    for original_day in payload.original_plan.days:
+        if original_day.day in selected_days:
+            restored_days.append(edited_by_day.get(original_day.day, original_day))
+        else:
+            restored_days.append(original_day.model_copy(deep=True))
+
+    edited_plan.days = restored_days
+    return edited_plan
 
 
 def _generate_plan_from_split(
@@ -1094,17 +1133,20 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
         )
         plan_response = _call_model(config, edit_system_prompt, edit_user_prompt)
         plan = apply_estimated_durations(_parse_plan_response(plan_response, prompt_bundle))
+        plan = _restore_unselected_days(plan, payload)
 
         duration_repair_notes = _build_duration_repair_notes(plan, prompt_bundle)
         if duration_repair_notes:
+            revised_payload = payload.model_copy(
+                update={
+                    "edit_instructions": payload.edit_instructions
+                    + "\n\nAdditional revision notes:\n- "
+                    + "\n- ".join(duration_repair_notes)
+                }
+            )
             revised_system_prompt, revised_user_prompt = _build_plan_edit_prompts(
                 prompt_bundle,
-                PlanEditRequest(
-                    **payload.model_dump(),
-                    edit_instructions=payload.edit_instructions
-                    + "\n\nAdditional revision notes:\n- "
-                    + "\n- ".join(duration_repair_notes),
-                ),
+                revised_payload,
             )
             revised_response = _call_model(
                 config, revised_system_prompt, revised_user_prompt
@@ -1112,6 +1154,7 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
             plan = apply_estimated_durations(
                 _parse_plan_response(revised_response, prompt_bundle)
             )
+            plan = _restore_unselected_days(plan, payload)
 
         if config.verifier_enabled:
             verifier_system_prompt, verifier_user_prompt = _build_verifier_prompts(
@@ -1123,14 +1166,16 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
             review = _parse_plan_review(review_response)
 
             if not review.approved and review.revision_notes:
+                revised_payload = payload.model_copy(
+                    update={
+                        "edit_instructions": payload.edit_instructions
+                        + "\n\nAdditional revision notes:\n- "
+                        + "\n- ".join(review.revision_notes)
+                    }
+                )
                 revised_system_prompt, revised_user_prompt = _build_plan_edit_prompts(
                     prompt_bundle,
-                    PlanEditRequest(
-                        **payload.model_dump(),
-                        edit_instructions=payload.edit_instructions
-                        + "\n\nAdditional revision notes:\n- "
-                        + "\n- ".join(review.revision_notes),
-                    ),
+                    revised_payload,
                 )
                 revised_response = _call_model(
                     config, revised_system_prompt, revised_user_prompt
@@ -1138,19 +1183,22 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
                 plan = apply_estimated_durations(
                     _parse_plan_response(revised_response, prompt_bundle)
                 )
+                plan = _restore_unselected_days(plan, payload)
 
         if config.backend_validation_enabled:
             try:
                 validate_plan_response(plan, prompt_bundle)
             except Exception as exc:
+                revised_payload = payload.model_copy(
+                    update={
+                        "edit_instructions": payload.edit_instructions
+                        + "\n\nAdditional revision notes:\n- "
+                        + "\n- ".join(_build_validation_repair_notes(exc))
+                    }
+                )
                 revised_system_prompt, revised_user_prompt = _build_plan_edit_prompts(
                     prompt_bundle,
-                    PlanEditRequest(
-                        **payload.model_dump(),
-                        edit_instructions=payload.edit_instructions
-                        + "\n\nAdditional revision notes:\n- "
-                        + "\n- ".join(_build_validation_repair_notes(exc)),
-                    ),
+                    revised_payload,
                 )
                 revised_response = _call_model(
                     config, revised_system_prompt, revised_user_prompt
@@ -1158,6 +1206,7 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
                 plan = apply_estimated_durations(
                     _parse_plan_response(revised_response, prompt_bundle)
                 )
+                plan = _restore_unselected_days(plan, payload)
                 validate_plan_response(plan, prompt_bundle)
         plan.metadata = build_plan_metadata(
             prompt_bundle,

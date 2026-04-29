@@ -5,6 +5,15 @@ from functools import lru_cache
 from pathlib import Path
 
 from api.equipment import categories_overlap
+from api.injury_rules import (
+    KNEE_STRESS_MARKERS,
+    LOW_BACK_STRESS_MARKERS,
+    SHOULDER_RELATED_PRIMARYS,
+    SHOULDER_STRESS_MARKERS,
+    SHOULDER_STRESS_PATTERNS,
+    contraindications_conflict,
+    infer_injury_flags,
+)
 from api.models import ExerciseCandidate, NormalizedPlanRequest
 from api.rag import build_knowledge_base_entry, build_retrieval_query, score_text_similarity
 
@@ -41,44 +50,6 @@ NON_MAIN_EXERCISE_MARKERS = {
 }
 NON_MAIN_MOVEMENT_PATTERNS = {"carry"}
 CORE_PATTERN = "core stability"
-INJURY_KEYWORDS = {
-    "acute knee pain": {"knee", "knees", "patella", "acl", "mcl", "meniscus"},
-    "acute low-back pain": {"low back", "lower back", "back", "spine", "disc"},
-    "acute shoulder pain": {"shoulder", "rotator cuff", "labrum"},
-    "acute elbow pain": {"elbow", "tendonitis", "tendinitis"},
-}
-KNEE_STRESS_MARKERS = {
-    "jump",
-    "hop",
-    "lunge",
-    "split squat",
-    "step-up",
-    "step up",
-    "step-out",
-    "step out",
-    "knee up-down",
-    "single-leg deadlift",
-    "single leg deadlift",
-    "single-leg",
-    "single leg",
-    "sissy squat",
-    "bulgarian",
-    "pistol squat",
-}
-LOW_BACK_STRESS_MARKERS = {
-    "deadlift",
-    "good morning",
-    "hinge",
-    "bent-over",
-    "bent over",
-}
-SHOULDER_STRESS_MARKERS = {
-    "overhead press",
-    "behind-the-neck",
-    "upright row",
-}
-
-
 @lru_cache(maxsize=1)
 def load_exercise_catalog() -> list[ExerciseCandidate]:
     with DATA_PATH.open("r", encoding="utf-8") as file:
@@ -121,24 +92,11 @@ def _is_main_work_exercise(exercise: ExerciseCandidate) -> bool:
 
     return True
 
-
-def _infer_injury_flags(injuries_text: str) -> set[str]:
-    lowered = injuries_text.lower()
-    flags: set[str] = set()
-
-    for flag, keywords in INJURY_KEYWORDS.items():
-        if any(keyword in lowered for keyword in keywords):
-            flags.add(flag)
-
-    return flags
-
-
 def _has_injury_conflict(exercise: ExerciseCandidate, injury_flags: set[str]) -> bool:
     if not injury_flags:
         return False
 
-    contraindications = set(exercise.contraindications)
-    if contraindications & injury_flags:
+    if contraindications_conflict(exercise.contraindications, injury_flags):
         return True
 
     lowered_name = exercise.name.lower()
@@ -163,6 +121,10 @@ def _has_injury_conflict(exercise: ExerciseCandidate, injury_flags: set[str]) ->
     if "acute shoulder pain" in injury_flags:
         if any(marker in lowered_name for marker in SHOULDER_STRESS_MARKERS):
             return True
+        if lowered_pattern in SHOULDER_STRESS_PATTERNS:
+            return True
+        if primary in SHOULDER_RELATED_PRIMARYS:
+            return True
 
     return False
 
@@ -172,7 +134,7 @@ def get_candidate_exercises(
 ) -> list[ExerciseCandidate]:
     catalog = load_exercise_catalog()
     selected_equipment = set(normalized.constraints.equipment)
-    injury_flags = _infer_injury_flags(normalized.constraints.injuries)
+    injury_flags = infer_injury_flags(normalized.constraints.injuries)
     scored_exercises: list[tuple[float, ExerciseCandidate]] = []
     query = build_retrieval_query(normalized)
 

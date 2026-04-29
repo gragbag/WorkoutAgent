@@ -3,6 +3,15 @@ from __future__ import annotations
 import re
 
 from api.equipment import categories_overlap
+from api.injury_rules import (
+    KNEE_STRESS_MARKERS,
+    LOW_BACK_STRESS_MARKERS,
+    SHOULDER_RELATED_PRIMARYS,
+    SHOULDER_STRESS_MARKERS,
+    SHOULDER_STRESS_PATTERNS,
+    contraindications_conflict,
+    infer_injury_flags,
+)
 from api.models import ExerciseCandidate, PlanResponse, PromptBundle, SplitPlan
 
 NAME_TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -29,44 +38,6 @@ SIMILARITY_STOPWORDS = {
     "wide",
     "weighted",
 }
-INJURY_KEYWORDS = {
-    "acute knee pain": {"knee", "knees", "patella", "acl", "mcl", "meniscus"},
-    "acute low-back pain": {"low back", "lower back", "back", "spine", "disc"},
-    "acute shoulder pain": {"shoulder", "rotator cuff", "labrum"},
-    "acute elbow pain": {"elbow", "tendonitis", "tendinitis"},
-}
-KNEE_STRESS_MARKERS = {
-    "jump",
-    "hop",
-    "lunge",
-    "split squat",
-    "step-up",
-    "step up",
-    "step-out",
-    "step out",
-    "knee up-down",
-    "single-leg deadlift",
-    "single leg deadlift",
-    "single-leg",
-    "single leg",
-    "sissy squat",
-    "bulgarian",
-    "pistol squat",
-}
-LOW_BACK_STRESS_MARKERS = {
-    "deadlift",
-    "good morning",
-    "hinge",
-    "bent-over",
-    "bent over",
-}
-SHOULDER_STRESS_MARKERS = {
-    "overhead press",
-    "behind-the-neck",
-    "upright row",
-}
-
-
 def _is_equipment_compatible(
     reported_equipment: str,
     selected_equipment: set[str],
@@ -105,18 +76,6 @@ def _base_similarity_tokens(name: str) -> set[str]:
         if token not in SIMILARITY_STOPWORDS and len(token) > 1
     }
 
-
-def _infer_injury_flags(injuries_text: str) -> set[str]:
-    lowered = injuries_text.lower()
-    flags: set[str] = set()
-
-    for flag, keywords in INJURY_KEYWORDS.items():
-        if any(keyword in lowered for keyword in keywords):
-            flags.add(flag)
-
-    return flags
-
-
 def _has_injury_conflict(
     exercise_name: str,
     movement_pattern: str,
@@ -127,7 +86,7 @@ def _has_injury_conflict(
     if not injury_flags:
         return False
 
-    if set(contraindications) & injury_flags:
+    if contraindications_conflict(contraindications, injury_flags):
         return True
 
     lowered_name = exercise_name.lower()
@@ -151,6 +110,10 @@ def _has_injury_conflict(
 
     if "acute shoulder pain" in injury_flags:
         if any(marker in lowered_name for marker in SHOULDER_STRESS_MARKERS):
+            return True
+        if lowered_pattern in SHOULDER_STRESS_PATTERNS:
+            return True
+        if primary in SHOULDER_RELATED_PRIMARYS:
             return True
 
     return False

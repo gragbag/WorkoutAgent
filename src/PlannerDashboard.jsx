@@ -50,6 +50,104 @@ const cardClass = 'rounded-[22px] border border-white/10 bg-white/[0.03]'
 const inputClass =
   'w-full rounded-[18px] border border-white/12 bg-white/[0.04] px-4 py-3.5 text-[#f5efe4] outline-none transition focus:border-[#ffb37c]/50 focus:ring-2 focus:ring-[#f08f56]/20'
 
+function clampNumber(value, fallback, minimum, maximum) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return fallback
+  }
+
+  return Math.min(Math.max(Math.round(numericValue), minimum), maximum)
+}
+
+function normalizeSavedPlanIntake(intake = {}, fallbackDays = []) {
+  const availableTrainingDays = Array.isArray(
+    intake.available_training_days ?? intake.availableTrainingDays
+  )
+    ? (intake.available_training_days ?? intake.availableTrainingDays).filter(Boolean)
+    : fallbackDays
+
+  const daysPerWeek = clampNumber(
+    intake.days_per_week ?? intake.daysPerWeek ?? availableTrainingDays.length,
+    Math.max(2, availableTrainingDays.length || 2),
+    2,
+    7
+  )
+
+  const sessionLengthMax = clampNumber(
+    intake.session_length_max ?? intake.sessionLengthMax,
+    45,
+    20,
+    90
+  )
+
+  const sessionLengthMin = clampNumber(
+    intake.session_length_min ?? intake.sessionLengthMin ?? sessionLengthMax,
+    sessionLengthMax,
+    20,
+    90
+  )
+
+  return {
+    experience: intake.experience ?? experienceLevels[0],
+    equipment: Array.isArray(intake.equipment) && intake.equipment.length > 0
+      ? intake.equipment
+      : ['Bodyweight'],
+    age_range: intake.age_range ?? intake.ageRange ?? ageRanges[0],
+    days_per_week: daysPerWeek,
+    session_length_min: Math.min(sessionLengthMin, sessionLengthMax),
+    session_length_max: sessionLengthMax,
+    available_training_days:
+      availableTrainingDays.length > 0 ? availableTrainingDays.slice(0, 7) : weekDays.slice(0, daysPerWeek),
+    injuries: intake.injuries ?? '',
+    current_activity_level:
+      intake.current_activity_level ?? intake.currentActivityLevel ?? activityLevels[0],
+    intensity_preference:
+      intake.intensity_preference ?? intake.intensityPreference ?? intensityPreferences[0],
+    notes: intake.notes ?? '',
+  }
+}
+
+function normalizeSavedExercise(exercise = {}) {
+  return {
+    name: exercise.name ?? '',
+    sets: clampNumber(exercise.sets, 3, 1, 8),
+    reps: exercise.reps ?? '',
+    rest_seconds: clampNumber(exercise.rest_seconds ?? exercise.restSeconds, 60, 15, 240),
+    intensity_note: exercise.intensity_note ?? exercise.intensityNote ?? '',
+    primary_muscle_group:
+      exercise.primary_muscle_group ?? exercise.primaryMuscleGroup ?? '',
+    secondary_muscles: Array.isArray(
+      exercise.secondary_muscles ?? exercise.secondaryMuscles
+    )
+      ? (exercise.secondary_muscles ?? exercise.secondaryMuscles).slice(0, 5)
+      : [],
+    movement_pattern: exercise.movement_pattern ?? exercise.movementPattern ?? '',
+    equipment_used: exercise.equipment_used ?? exercise.equipmentUsed ?? '',
+    coaching_cues: Array.isArray(exercise.coaching_cues ?? exercise.coachingCues)
+      ? (exercise.coaching_cues ?? exercise.coachingCues).slice(0, 3)
+      : [],
+    exercise_explanation:
+      exercise.exercise_explanation ?? exercise.exerciseExplanation ?? '',
+    substitution_note: exercise.substitution_note ?? exercise.substitutionNote ?? '',
+  }
+}
+
+function normalizeSavedPlanDay(day = {}) {
+  return {
+    day: day.day ?? '',
+    focus: day.focus ?? '',
+    duration_minutes: clampNumber(day.duration_minutes ?? day.durationMinutes, 45, 1, 90),
+    warmup: Array.isArray(day.warmup) ? day.warmup.slice(0, 5) : [],
+    exercises: Array.isArray(day.exercises)
+      ? day.exercises.map((exercise) => normalizeSavedExercise(exercise)).slice(0, 6)
+      : [],
+    cooldown: Array.isArray(day.cooldown) ? day.cooldown.slice(0, 3) : [],
+    coach_notes: Array.isArray(day.coach_notes ?? day.coachNotes)
+      ? (day.coach_notes ?? day.coachNotes).slice(0, 3)
+      : [],
+  }
+}
+
 function PlannerDashboard({ userId, userEmail, onSignOut }) {
   const [activePage, setActivePage] = useState('home')
   const [experience, setExperience] = useState(experienceLevels[0])
@@ -135,6 +233,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
     [
       activityLevel,
       ageRange,
+      daysPerWeek,
       equipment,
       experience,
       intensityPreference,
@@ -307,7 +406,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
       summary: plan.summary,
       athlete_snapshot: plan.athleteSnapshot ?? [],
       coaching_notes: plan.coachingNotes ?? [],
-      days: plan.days ?? [],
+      days: Array.isArray(plan.days) ? plan.days.map((day) => normalizeSavedPlanDay(day)) : [],
       metadata: {
         provider_requested: plan.metadata?.provider_requested ?? 'saved_plan',
         provider_used: plan.metadata?.provider_used ?? 'saved_plan',
@@ -344,40 +443,37 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
   function toggleEditSession(day, focus = '') {
     const key = getSessionEditKey(day)
-    setSelectedEditSessions((current) => {
-      if (current[key]) {
-        const next = { ...current }
-        delete next[key]
-        return next
-      }
-
-      return {
-        ...current,
-        [key]: { day, focus },
-      }
-    })
+    setSelectedEditSessions((current) =>
+      current[key] ? {} : { [key]: { selection_type: 'day', day, focus, exercise_name: '' } }
+    )
+    setSelectedEditExercises({})
   }
 
   function toggleEditExercise(day, exerciseName, focus = '') {
     const key = getSessionEditKey(day)
-    setSelectedEditSessions((current) => ({
-      ...current,
-      [key]: current[key] ?? { day, focus },
-    }))
-
     setSelectedEditExercises((current) => {
       const currentItems = current[key] ?? []
-      if (currentItems.includes(exerciseName)) {
-        return {
-          ...current,
-          [key]: currentItems.filter((item) => item !== exerciseName),
-        }
+      const isSameExerciseSelected =
+        Object.keys(current).length === 1 && currentItems.includes(exerciseName)
+
+      setSelectedEditSessions(
+        isSameExerciseSelected
+          ? {}
+          : {
+              [key]: {
+                selection_type: 'exercise',
+                day,
+                focus,
+                exercise_name: exerciseName,
+              },
+            }
+      )
+
+      if (isSameExerciseSelected) {
+        return {}
       }
 
-      return {
-        ...current,
-        [key]: [...currentItems, exerciseName],
-      }
+      return { [key]: [exerciseName] }
     })
   }
 
@@ -394,9 +490,8 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
     try {
       const selectedSessionsPayload = Object.entries(selectedEditSessions).map(
-        ([key, selection]) => ({
+        ([, selection]) => ({
           ...selection,
-          exercise_names: selectedEditExercises[key] ?? [],
         })
       )
 
@@ -406,7 +501,12 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          intake: planBeingEdited.intake,
+          intake: normalizeSavedPlanIntake(
+            planBeingEdited.intake,
+            Array.isArray(planBeingEdited.days)
+              ? planBeingEdited.days.map((day) => day.day).filter(Boolean)
+              : []
+          ),
           original_plan: mapSavedPlanToApiPlan(planBeingEdited),
           edit_instructions: editInstructions,
           selected_sessions: selectedSessionsPayload,
@@ -465,7 +565,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
         try {
           await deleteSavedPlan(userId, planBeingEdited.id)
-        } catch (_deleteError) {
+        } catch {
           // Keep the new saved plan even if cleanup of the old row fails.
         }
 
@@ -1327,8 +1427,8 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 {planBeingEdited.summary}
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
-                Pick the sessions or exercises you want to change, then explain what
-                should be removed, replaced, simplified, or rewritten.
+                Pick one day or one exercise to change, then explain what should be
+                removed, replaced, simplified, or rewritten.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1357,13 +1457,13 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               </p>
             </div>
             <div className={`${cardClass} p-4`}>
-              <p className={sectionLabelClass}>Selected sessions</p>
+              <p className={sectionLabelClass}>Selected target</p>
               <strong className="mt-2 block text-3xl text-[#f9f2e8]">{selectedSessionCount}</strong>
             </div>
             <div className={`${cardClass} p-4`}>
               <p className={sectionLabelClass}>Feedback mode</p>
               <p className="mt-2 text-sm leading-6 text-[#efe7d8]">
-                Preserve untouched sessions unless the request implies a broader rewrite.
+                Single-target edits keep the rest of the week unchanged unless you ask for a broader rewrite.
               </p>
             </div>
           </div>
@@ -1371,9 +1471,12 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
           <div className="mt-6 grid gap-4">
             <article className={`${cardClass} p-4`}>
               <p className={sectionLabelClass}>Required sessions</p>
+              <p className="mt-2 text-sm leading-6 text-[#c2b7a6]">
+                Selecting a new day or exercise replaces the previous target.
+              </p>
               <div className="mt-3 grid gap-3">
                 {planBeingEdited.days.map((day) => {
-                  const sessionKey = getSessionEditKey(day.day, false)
+                  const sessionKey = getSessionEditKey(day.day)
                   const isSelected = Boolean(selectedEditSessions[sessionKey])
 
                   return (
@@ -1385,7 +1488,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                         </div>
                         <button
                           type="button"
-                          onClick={() => toggleEditSession(day.day, false, day.focus)}
+                          onClick={() => toggleEditSession(day.day, day.focus)}
                           className={`rounded-full px-3 py-2 text-sm transition ${
                             isSelected
                               ? 'bg-[#f08f56]/18 text-[#ffcfad]'
@@ -1405,7 +1508,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                               key={`${sessionKey}-${exercise.name}`}
                               type="button"
                               onClick={() =>
-                                toggleEditExercise(day.day, exercise.name, false, day.focus)
+                                toggleEditExercise(day.day, exercise.name, day.focus)
                               }
                               className={`rounded-full border px-3 py-2 text-sm transition ${
                                 isExerciseSelected
@@ -1434,7 +1537,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
                 className={`${inputClass} mt-3 min-h-36 resize-y`}
                 value={editInstructions}
                 onChange={(event) => setEditInstructions(event.target.value)}
-                placeholder="Example: Replace the Tuesday dumbbell lunges with something easier on my knees, remove one triceps isolation move, and make Friday feel more back-focused."
+                placeholder="Example: On Tuesday only, add one biceps exercise without changing any other day."
                 required
               />
               <p className="mt-3 text-sm leading-6 text-[#c2b7a6]">
