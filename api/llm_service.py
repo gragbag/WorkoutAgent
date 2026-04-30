@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib import error, request
@@ -20,6 +21,7 @@ from api.services import apply_estimated_durations, prepare_plan_generation
 from api.split_preferences import render_requested_focus_counts, requested_focus_mismatches
 
 logger = logging.getLogger(__name__)
+FOCUS_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
 @dataclass
@@ -153,10 +155,64 @@ def _parse_plan_response(raw_text: str, prompt_bundle: PromptBundle) -> PlanResp
     )
 
 
-def _parse_split_plan(raw_text: str) -> SplitPlan:
+def _normalize_focus_tokens(value: str) -> set[str]:
+    return set(FOCUS_TOKEN_RE.findall(value.lower()))
+
+
+def _fallback_key_patterns_for_day(
+    day: dict[str, Any], day_index: int, prompt_bundle: PromptBundle
+) -> list[str]:
+    day_focus_tokens = _normalize_focus_tokens(str(day.get("focus", "")))
+
+    for template in prompt_bundle.split_template_matches:
+        best_match: list[str] | None = None
+        best_overlap = 0
+
+        for blueprint in template.day_blueprints:
+            overlap = len(day_focus_tokens & _normalize_focus_tokens(blueprint.focus))
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_match = blueprint.key_patterns
+
+        if best_match:
+            return best_match
+
+        if day_index < len(template.day_blueprints):
+            return template.day_blueprints[day_index].key_patterns
+
+    return []
+
+
+def _repair_split_plan_payload(
+    parsed: dict[str, Any], prompt_bundle: PromptBundle
+) -> dict[str, Any]:
+    normalized = _normalize_split_plan_payload(parsed)
+
+    for day_index, day in enumerate(normalized["days"]):
+        if day["key_patterns"]:
+            continue
+
+        fallback_key_patterns = _fallback_key_patterns_for_day(
+            day, day_index, prompt_bundle
+        )
+        if fallback_key_patterns:
+            day["key_patterns"] = fallback_key_patterns[:4]
+            logger.warning(
+                "Filled missing split key_patterns from shortlisted template",
+                extra={
+                    "day": day.get("day"),
+                    "focus": day.get("focus"),
+                    "day_index": day_index,
+                },
+            )
+
+    return normalized
+
+
+def _parse_split_plan(raw_text: str, prompt_bundle: PromptBundle) -> SplitPlan:
     json_blob = _extract_json_blob(raw_text)
     parsed = json.loads(json_blob)
-    return SplitPlan.model_validate(_normalize_split_plan_payload(parsed))
+    return SplitPlan.model_validate(_repair_split_plan_payload(parsed, prompt_bundle))
 
 
 def _truncate_text(value: Any, max_length: int) -> str:
@@ -522,7 +578,7 @@ def _generate_split_plan(
         prompt_bundle, revision_notes=revision_notes
     )
     split_response = _call_model(config, split_system_prompt, split_user_prompt)
-    split_plan = _parse_split_plan(split_response)
+    split_plan = _parse_split_plan(split_response, prompt_bundle)
     _validate_split_plan(split_plan, prompt_bundle)
     return split_plan
 
