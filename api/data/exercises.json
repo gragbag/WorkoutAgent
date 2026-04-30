@@ -105,6 +105,24 @@
     ]
   },
   {
+    "name": "Bench press",
+    "primary_muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment_used": "Barbell / rack / Bench",
+    "movement_pattern": "horizontal push",
+    "coaching_cues": [
+      "Bench press targets the chest area of the chest.",
+      "Use about 3-4 sets of 8-12 reps.",
+      "Keep your shoulder blades set and press through a steady path."
+    ],
+    "contraindications": [
+      "acute shoulder pain"
+    ]
+  },
+  {
     "name": "Bicycle crunches",
     "primary_muscle_group": "core",
     "secondary_muscles": [
@@ -138,6 +156,24 @@
     ]
   },
   {
+    "name": "Bulgarian split squats",
+    "primary_muscle_group": "legs",
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment_used": "Dumbbells / Bench",
+    "movement_pattern": "single-leg squat",
+    "coaching_cues": [
+      "Bulgarian split squats targets the quadriceps area of the legs.",
+      "Use about 3-4 sets of 8-12 reps per leg.",
+      "Stay balanced and control knee tracking throughout each rep."
+    ],
+    "contraindications": [
+      "acute knee pain"
+    ]
+  },
+  {
     "name": "Cable crossovers",
     "primary_muscle_group": "chest",
     "secondary_muscles": [
@@ -166,6 +202,25 @@
       "Move with control and stop shy of technical breakdown."
     ],
     "contraindications": []
+  },
+  {
+    "name": "Chin-ups",
+    "primary_muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "upper back"
+    ],
+    "equipment_used": "Pull-up bar",
+    "movement_pattern": "vertical pull",
+    "coaching_cues": [
+      "Chin-ups targets the upper area of the back.",
+      "Use about 3-4 sets of 6-10 reps.",
+      "Drive the elbows down and keep the torso controlled."
+    ],
+    "contraindications": [
+      "acute elbow pain",
+      "acute shoulder pain"
+    ]
   },
   {
     "name": "Close-grip bench press",
@@ -266,6 +321,25 @@
     ]
   },
   {
+    "name": "Deadlifts",
+    "primary_muscle_group": "glutes",
+    "secondary_muscles": [
+      "core",
+      "hamstrings"
+    ],
+    "equipment_used": "Barbell / rack",
+    "movement_pattern": "hip hinge",
+    "coaching_cues": [
+      "Deadlifts targets the glutes area of the legs.",
+      "Use about 3-4 sets of 5-8 reps.",
+      "Keep a neutral spine and hinge through the hips, not the low back."
+    ],
+    "contraindications": [
+      "acute knee pain",
+      "acute low-back pain"
+    ]
+  },
+  {
     "name": "Donkey kicks",
     "primary_muscle_group": "glutes",
     "secondary_muscles": [
@@ -362,6 +436,25 @@
     ],
     "contraindications": [
       "acute shoulder pain"
+    ]
+  },
+  {
+    "name": "Glute bridges",
+    "primary_muscle_group": "glutes",
+    "secondary_muscles": [
+      "core",
+      "hamstrings"
+    ],
+    "equipment_used": "Mat / floor space",
+    "movement_pattern": "hip hinge",
+    "coaching_cues": [
+      "Glute bridges targets the glutes area of the legs.",
+      "Use about 3-4 sets of 10-15 reps.",
+      "Keep a neutral spine and hinge through the hips, not the low back."
+    ],
+    "contraindications": [
+      "acute knee pain",
+      "acute low-back pain"
     ]
   },
   {
@@ -493,6 +586,25 @@
     ]
   },
   {
+    "name": "Lat pulldowns",
+    "primary_muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "upper back"
+    ],
+    "equipment_used": "Machines / cables",
+    "movement_pattern": "vertical pull",
+    "coaching_cues": [
+      "Lat pulldowns targets the upper area of the back.",
+      "Use about 3-4 sets of 8-12 reps.",
+      "Drive the elbows down and keep the torso controlled."
+    ],
+    "contraindications": [
+      "acute elbow pain",
+      "acute shoulder pain"
+    ]
+  },
+  {
     "name": "Leg curls",
     "primary_muscle_group": "hamstrings",
     "secondary_muscles": [
@@ -564,6 +676,24 @@
       "Brace the trunk and avoid using momentum to finish the reps."
     ],
     "contraindications": []
+  },
+  {
+    "name": "Lunges",
+    "primary_muscle_group": "legs",
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment_used": "Bodyweight",
+    "movement_pattern": "single-leg squat",
+    "coaching_cues": [
+      "Lunges targets the quadriceps area of the legs.",
+      "Use about 3-4 sets of 8-12 reps per leg.",
+      "Stay balanced and control knee tracking throughout each rep."
+    ],
+    "contraindications": [
+      "acute knee pain"
+    ]
   },
   {
     "name": "Military press",
@@ -663,6 +793,24 @@
     ],
     "contraindications": [
       "acute elbow pain",
+      "acute shoulder pain"
+    ]
+  },
+  {
+    "name": "Push-ups",
+    "primary_muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment_used": "Bodyweight",
+    "movement_pattern": "horizontal push",
+    "coaching_cues": [
+      "Push-ups targets the chest area of the chest.",
+      "Use about 3-4 sets of 8-15 reps.",
+      "Keep your shoulder blades set and press through a steady path."
+    ],
+    "contraindications": [
       "acute shoulder pain"
     ]
   },
