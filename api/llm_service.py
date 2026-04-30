@@ -13,13 +13,11 @@ from api.models import (
     PlanEditRequest,
     PlanRequest,
     PlanResponse,
-    PlanReview,
     PromptBundle,
     SplitPlan,
 )
 from api.services import apply_estimated_durations, prepare_plan_generation
 from api.split_preferences import render_requested_focus_counts, requested_focus_mismatches
-from api.validators import validate_plan_response
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +29,6 @@ class LLMConfig:
     api_key: str
     model: str
     timeout_seconds: int
-    verifier_enabled: bool
-    backend_validation_enabled: bool
 
 
 def _load_config() -> LLMConfig:
@@ -46,12 +42,6 @@ def _load_config() -> LLMConfig:
         api_key=os.getenv("WORKOUTAGENT_LLM_API_KEY", ""),
         model=os.getenv("WORKOUTAGENT_LLM_MODEL", ""),
         timeout_seconds=int(os.getenv("WORKOUTAGENT_LLM_TIMEOUT", "75")),
-        verifier_enabled=os.getenv("WORKOUTAGENT_ENABLE_VERIFIER", "0").lower()
-        in {"1", "true", "yes", "on"},
-        backend_validation_enabled=os.getenv(
-            "WORKOUTAGENT_ENABLE_BACKEND_VALIDATION", "0"
-        ).lower()
-        in {"1", "true", "yes", "on"},
     )
 
 
@@ -148,6 +138,7 @@ def _call_openai_compatible_api(config: LLMConfig, system_prompt: str, user_prom
             return combined
 
     raise ValueError("LLM response did not contain text content.")
+
 
 def _parse_plan_response(raw_text: str, prompt_bundle: PromptBundle) -> PlanResponse:
     json_blob = _extract_json_blob(raw_text)
@@ -314,11 +305,6 @@ def _normalize_plan_response_payload(
             if isinstance(day, dict)
         ],
     }
-
-
-def _parse_plan_review(raw_text: str) -> PlanReview:
-    json_blob = _extract_json_blob(raw_text)
-    return PlanReview.model_validate(json.loads(json_blob))
 
 
 def _compact_json(value: Any) -> str:
@@ -656,71 +642,6 @@ Return JSON in this shape:
     return system_prompt, user_prompt
 
 
-def _build_verifier_prompts(prompt_bundle: PromptBundle, plan: PlanResponse) -> tuple[str, str]:
-    system_prompt = (
-        "You are the Verifier agent for WorkoutAgent. "
-        "Review a workout plan for hard constraint violations, internal consistency, and athlete fit. "
-        "Be strict and conservative. "
-        "Reject the plan if any exercise appears incompatible with the athlete's equipment, injuries, schedule, or session constraints. "
-        "Check every session and every exercise, not just the overall summary. "
-        "If you are unsure whether an exercise is allowed, treat it as a problem and request a safer replacement. "
-        "Return valid JSON only."
-    )
-    user_prompt = f"""
-Review this workout plan.
-
-{_render_intake_context(prompt_bundle, include_schedule=False, include_free_text_fields=False)}
-
-Structured exercise context:
-{_render_structured_exercise_context(prompt_bundle, limit=10)}
-
-Plan to review:
-{_compact_json(plan.model_dump())}
-
-Verification instructions:
-- Review every session.
-- Review every exercise individually, not just the session as a whole.
-- Treat equipment compatibility as a hard requirement.
-- Treat schedule and session length constraints as hard requirements.
-- Treat obvious injury conflicts as hard requirements.
-- Prefer false positives over false negatives: if an exercise might be invalid, flag it.
-
-Hard checks:
-- Every exercise must be compatible with the athlete's selected equipment categories.
-- Do not allow exercises that clearly require equipment the athlete did not select.
-- If an exercise name implies disallowed equipment, flag it even if the rest of the session looks good.
-- If an exercise conflicts with the athlete's injuries, limitations, or recovery context, flag it.
-- If a session appears too small or too large for its stated duration, flag it.
-- If the plan uses coded, branded, unclear, or non-standard exercise names, flag them and request clearer replacements.
-- If the plan overuses one narrow movement pattern without athlete-specific justification, flag it.
-- If the total week misses obvious muscle-group coverage implied by the split's focuses and key patterns, flag it.
-- If a session uses near-duplicate exercises that fill essentially the same role, flag them and request a more complementary replacement.
-- If a pull-heavy or upper-back-focused session omits direct biceps work without a clear reason, flag it.
-
-When deciding approval:
-- approved must be false if there is any likely equipment mismatch.
-- approved must be false if there is any likely injury conflict.
-- approved must be false if there is any major schedule or session-length problem.
-- approved should be false if any exercise is a poor fit and should be replaced.
-
-Revision note style:
-- Be specific.
-- Name the exact exercise that should be removed or replaced.
-- Say why it is a problem.
-- Say what kind of replacement is needed.
-- Prefer compatible replacements from the candidate/context set when possible.
-- Preserve the original day focus when proposing revisions.
-
-Return JSON in this shape:
-{{
-  "approved": boolean,
-  "issues": [string],
-  "revision_notes": [string]
-}}
-""".strip()
-    return system_prompt, user_prompt
-
-
 def _build_plan_edit_prompts(
     prompt_bundle: PromptBundle, payload: PlanEditRequest
 ) -> tuple[str, str]:
@@ -881,18 +802,6 @@ def _build_duration_repair_notes(
     return notes[:4]
 
 
-def _build_validation_repair_notes(error: Exception) -> list[str]:
-    return [
-        "The previous plan failed a backend validation check and must be corrected.",
-        str(error),
-        "Replace any exercise that likely conflicts with the athlete's injuries or selected equipment.",
-        "Use clear, standard exercise names and avoid coded or branded variants.",
-        "Do not use near-duplicate exercises in the same session.",
-        "If a session is pull-heavy or upper-back-focused, usually include at least one direct biceps exercise unless the athlete context clearly justifies omitting it.",
-        "Across the total week, do not miss obvious muscle-group coverage implied by the split's focuses and key patterns.",
-    ]
-
-
 def generate_plan_response(payload: PlanRequest) -> PlanResponse:
     prompt_bundle = prepare_plan_generation(payload)
     config = _load_config()
@@ -943,40 +852,6 @@ def generate_plan_response(payload: PlanRequest) -> PlanResponse:
                 revision_notes=duration_repair_notes,
             )
 
-        if config.verifier_enabled:
-            verifier_system_prompt, verifier_user_prompt = _build_verifier_prompts(
-                prompt_bundle, plan
-            )
-            review_response = _call_model(
-                config, verifier_system_prompt, verifier_user_prompt
-            )
-            review = _parse_plan_review(review_response)
-
-            if not review.approved and review.revision_notes:
-                revised_system_prompt, revised_user_prompt = _build_exercise_agent_prompts(
-                    prompt_bundle,
-                    split_plan,
-                    revision_notes=review.revision_notes,
-                )
-                revised_response = _call_model(
-                    config, revised_system_prompt, revised_user_prompt
-                )
-                plan = apply_estimated_durations(
-                    _parse_plan_response(revised_response, prompt_bundle)
-                )
-
-        if config.backend_validation_enabled:
-            try:
-                validate_plan_response(plan, prompt_bundle, split_plan)
-            except Exception as exc:
-                plan = _generate_plan_from_split(
-                    config,
-                    prompt_bundle,
-                    split_plan,
-                    revision_notes=_build_validation_repair_notes(exc),
-                )
-                validate_plan_response(plan, prompt_bundle, split_plan)
-
         return plan
     except Exception as exc:
         logger.exception(
@@ -1021,59 +896,6 @@ def generate_edited_plan_response(payload: PlanEditRequest) -> PlanResponse:
                 _parse_plan_response(revised_response, prompt_bundle)
             )
             plan = _restore_unselected_days(plan, payload)
-
-        if config.verifier_enabled:
-            verifier_system_prompt, verifier_user_prompt = _build_verifier_prompts(
-                prompt_bundle, plan
-            )
-            review_response = _call_model(
-                config, verifier_system_prompt, verifier_user_prompt
-            )
-            review = _parse_plan_review(review_response)
-
-            if not review.approved and review.revision_notes:
-                revised_payload = payload.model_copy(
-                    update={
-                        "edit_instructions": payload.edit_instructions
-                        + "\n\nAdditional revision notes:\n- "
-                        + "\n- ".join(review.revision_notes)
-                    }
-                )
-                revised_system_prompt, revised_user_prompt = _build_plan_edit_prompts(
-                    prompt_bundle,
-                    revised_payload,
-                )
-                revised_response = _call_model(
-                    config, revised_system_prompt, revised_user_prompt
-                )
-                plan = apply_estimated_durations(
-                    _parse_plan_response(revised_response, prompt_bundle)
-                )
-                plan = _restore_unselected_days(plan, payload)
-
-        if config.backend_validation_enabled:
-            try:
-                validate_plan_response(plan, prompt_bundle)
-            except Exception as exc:
-                revised_payload = payload.model_copy(
-                    update={
-                        "edit_instructions": payload.edit_instructions
-                        + "\n\nAdditional revision notes:\n- "
-                        + "\n- ".join(_build_validation_repair_notes(exc))
-                    }
-                )
-                revised_system_prompt, revised_user_prompt = _build_plan_edit_prompts(
-                    prompt_bundle,
-                    revised_payload,
-                )
-                revised_response = _call_model(
-                    config, revised_system_prompt, revised_user_prompt
-                )
-                plan = apply_estimated_durations(
-                    _parse_plan_response(revised_response, prompt_bundle)
-                )
-                plan = _restore_unselected_days(plan, payload)
-                validate_plan_response(plan, prompt_bundle)
         return plan
     except Exception as exc:
         logger.exception(

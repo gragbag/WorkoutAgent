@@ -156,12 +156,6 @@ class SplitPlan(BaseModel):
     days: list[SplitPlanDay] = Field(..., min_length=2, max_length=7)
 
 
-class PlanReview(BaseModel):
-    approved: bool
-    issues: list[str] = Field(default_factory=list, max_length=8)
-    revision_notes: list[str] = Field(default_factory=list, max_length=8)
-
-
 class PlanExercise(BaseModel):
     name: str = Field(..., min_length=1)
     sets: int = Field(..., ge=1, le=8)
