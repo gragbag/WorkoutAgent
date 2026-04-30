@@ -143,15 +143,11 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key`}
       <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <article className="rounded-[32px] border border-white/10 bg-[rgba(15,19,21,0.74)] p-8 shadow-[0_24px_90px_rgba(0,0,0,0.24)]">
           <p className="text-[0.72rem] uppercase tracking-[0.14em] text-[#c2b7a6]">
-            WorkoutAgent access
+            WorkoutAgent
           </p>
           <h1 className="mt-3 max-w-[11ch] text-[clamp(2.8rem,7vw,5.4rem)] leading-[0.95] font-semibold tracking-[-0.05em] text-[#f9f2e8]">
             Sign in before you generate plans.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-[#efe7d8]">
-            Add a real user layer to the project so you can support saved plans, user
-            history, protected generation, and future personalization work.
-          </p>
         </article>
 
         <section className="rounded-[28px] border border-white/10 bg-[rgba(15,19,21,0.74)] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.24)]">
@@ -253,10 +249,6 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key`}
             </button>
           </form>
 
-          <p className="mt-5 text-sm leading-6 text-[#c2b7a6]">
-            Supabase handles the user identity layer here. The planner stays in your app
-            once a session exists.
-          </p>
         </section>
       </section>
     </main>
