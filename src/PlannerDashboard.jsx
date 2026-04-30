@@ -671,10 +671,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
           <h1 className="mt-2 text-3xl leading-tight font-semibold tracking-[-0.04em] text-[#f9f2e8]">
             Training workspace
           </h1>
-          <p className="mt-3 text-sm leading-6 text-[#efe7d8]">
-            Move between planning, saved workouts, profile context, and backend quality
-            signals without losing your place.
-          </p>
         </div>
 
         <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
@@ -810,7 +806,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
             <div className="grid gap-6">
               <section className="grid gap-3">
                 <div>
-                  <p className={sectionLabelClass}>Planning preferences</p>
                   <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">
                     Training experience and effort
                   </h3>
@@ -857,7 +852,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
               <section className="grid gap-3">
                 <div>
-                  <p className={sectionLabelClass}>Profile</p>
                   <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">
                     Athlete baseline
                   </h3>
@@ -904,7 +898,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
               <section className="grid gap-3">
                 <div>
-                  <p className={sectionLabelClass}>Schedule</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">Schedule</h3>
                 </div>
 
                 <div className="grid gap-[18px] md:grid-cols-2">
@@ -966,7 +960,7 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
 
               <section className="grid gap-3">
                 <div>
-                  <p className={sectionLabelClass}>Constraints</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[#f9f2e8]">Constraints</h3>
                 </div>
 
                 <div className="grid gap-3">
@@ -1145,31 +1139,6 @@ function PlannerDashboard({ userId, userEmail, onSignOut }) {
               </div>
             ) : null}
 
-            <article className={`${cardClass} mt-[22px] p-5`}>
-              <p className={sectionLabelClass}>
-                {generatedPlan ? 'API output details' : 'Limitations being interpreted'}
-              </p>
-              {generatedPlan ? (
-                <div className="mt-3 space-y-3 text-sm leading-6 text-[#efe7d8]">
-                  {generatedPlan.days[0] ? (
-                    <>
-                      <p>
-                        <span className="font-medium text-[#ffcfad]">Cooldown:</span>{' '}
-                        {generatedPlan.days[0].cooldown.join(', ')}
-                      </p>
-                      <p>
-                        <span className="font-medium text-[#ffcfad]">Coach notes:</span>{' '}
-                        {generatedPlan.days[0].coach_notes.join(' ')}
-                      </p>
-                    </>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="mt-3 m-0 leading-6 text-[#efe7d8]">
-                  {injuries || 'No injuries added yet.'}
-                </p>
-              )}
-            </article>
           </section>
         </section>
       </>
